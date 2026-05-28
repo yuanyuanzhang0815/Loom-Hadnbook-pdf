@@ -1,0 +1,7 @@
+interface:
+  display_name: "Loom Handbook PDF"
+  short_description: "Generate polished Loom handbook PDFs"
+  default_prompt: "Use $loom-handbook-pdf to generate the latest 织灵 / Coda Loom product handbook PDF from the online handbook with images, clickable TOC, page numbers, cover, footer, and validation."
+
+policy:
+  allow_implicit_invocation: true
