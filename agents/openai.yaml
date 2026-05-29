@@ -1,0 +1,7 @@
+interface:
+  display_name: "Loom Handbook PDF"
+  short_description: "Generate template-styled Loom handbook PDFs"
+  default_prompt: "Use $loom-handbook-pdf to generate the latest 织灵产品使用手册 PDF from the online handbook with the confirmed company template cover, official company-logo.png asset, single-column clickable TOC with page numbers, localized images, template header/footer, and validation."
+
+policy:
+  allow_implicit_invocation: true
