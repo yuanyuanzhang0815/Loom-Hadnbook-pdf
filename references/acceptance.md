@@ -22,6 +22,7 @@ Use this checklist before saying the PDF is done.
 | Body | A4, template margins, reduced blank space, readable |
 | Images | Localized and visible; no blank screenshot areas |
 | Header | Current accepted layout, right official logo, horizontal line intact |
+| Header logo size | Cover and body header logo visually match; body header does not use the old oversized `91.5pt` logo |
 | Footer | Left version, center company English, right plain page number only |
 | File size | Under 50 MB unless user changes the limit |
 | Final output | Actual PDF path returned |
@@ -55,6 +56,7 @@ docDestinations: 41
 imageXObjects: 180+
 tocHasPageNumbers: true
 fonts: AppleColorEmoji, SourceHanSansCN-Bold, SourceHanSansCN-Regular
+headerLogo: page 1 and body page visible logo bbox both about 60-61pt wide
 ```
 
 ## Manual Visual Verification
@@ -76,6 +78,7 @@ Look for:
 - screenshots display,
 - Chinese punctuation is full-width where the source uses full-width punctuation,
 - header line/logo position did not shift,
+- body header logo is the same apparent size as the cover header logo,
 - footer has center company English and plain right page number,
 - no large accidental blank areas.
 

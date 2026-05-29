@@ -91,6 +91,11 @@ Current accepted cover rules:
 - A4 page.
 - Uses company template first-page margins and positioning.
 - Right-aligned official logo in the first header.
+- First header logo calibration:
+  - image CSS width: `63pt`
+  - image top: `32pt`
+  - visible logo bbox: about `60x16-18pt`
+  - header line top: `55pt`
 - `编号：` field is blank.
 - `密级：` field is blank.
 - Two blank spacer paragraphs before the title area.
@@ -166,7 +171,11 @@ TOC/body pages:
 
 - Header left: `织灵产品使用手册`.
 - Header right: official company logo from `assets/company-logo.png`.
-- Header line: current accepted horizontal rule position and weight.
+- Header right logo must match the cover header logo, not the older oversized body logo:
+  - image CSS width: `63pt`
+  - image top: `32pt`
+  - visible logo bbox: about `61x17pt`
+- Header line: current accepted horizontal rule position and weight, `top: 55pt`.
 - Footer left: `版本：v1.0.0`.
 - Footer center: `Coda Intellect Tech Co., Ltd Confidential`.
 - Footer right: plain page number only, for example `2`.
@@ -231,5 +240,6 @@ Stop instead of shipping when:
 - post-processing destroys named destinations,
 - font table includes disallowed fonts,
 - Chinese punctuation is converted to ASCII punctuation,
+- body header logo is larger than the cover header logo or uses the old `91.5pt` width,
 - file size exceeds the agreed maximum,
 - output is blank or visibly broken.

@@ -230,6 +230,36 @@ Fix:
 - Do not touch header CSS/overlay dimensions unless the user explicitly asks.
 - Keep current accepted logo position and horizontal line.
 
+### Symptom
+
+Body page right-side logo is visibly larger than the cover header logo.
+
+### Cause
+
+The generator or overlay reverted to the old body header size:
+
+```css
+width: 91.5pt;
+top: 26.5pt;
+```
+
+### Fix
+
+Use the accepted cover-matched values:
+
+```css
+width: 63pt;
+top: 32pt;
+```
+
+Set the header line to:
+
+```css
+top: 55pt;
+```
+
+After rendering, compare page 1 and page 2 header crops. The logo-only visible boxes should both be about `60-61pt` wide.
+
 ## Cover Regressed
 
 Symptom: cover shows old marketing-style artwork, metadata cards, blue decorations, or screenshot-matched elements.

@@ -38,6 +38,7 @@ Avoid these known failures:
 - Missing fonts caused WPS/macOS fallback fonts such as `STKaiti`, `STHeiti`, `DengXian-Light`, or `Helvetica`.
 - Broad text normalization changed Chinese punctuation into ASCII punctuation.
 - A screenshot/logo approximation violated the official logo rule.
+- Body headers once used a larger right-side logo than the user-approved cover header. The accepted fix is to shrink the header logo from the old `91.5pt` width to `63pt`, move it to `top: 32pt`, and set the header line to `top: 55pt`.
 
 ## Correct Pipeline
 
@@ -268,7 +269,8 @@ TOC/body:
 
 - header left: `织灵产品使用手册`,
 - header right: `assets/company-logo.png`,
-- header line: current accepted position/weight,
+- header right logo: `width: 63pt`, `top: 32pt`, same visual size as cover header,
+- header line: `top: 55pt`, current accepted weight/color,
 - footer left: `版本：v1.0.0`,
 - footer center: `Coda Intellect Tech Co., Ltd Confidential`,
 - footer right: plain page number only.
@@ -304,6 +306,40 @@ Forbidden:
 - fallback generated logo.
 
 If the asset cannot be read, stop and explain.
+
+## Header Logo Calibration
+
+The user-approved cover has a smaller company logo than the earlier body header.
+
+Use these locked CSS values in both cover and body header rendering:
+
+```css
+.cover-first-header img,
+.header-logo {
+  width: 63pt;
+  top: 32pt;
+}
+
+.cover-first-header::after,
+.header-line {
+  top: 55pt;
+}
+```
+
+Expected rendered measurement at 72dpi:
+
+```text
+page 1 logo-only bbox: about 60x16-18 pt
+body page logo-only bbox: about 61x17 pt
+right edge: visually aligned with cover header
+```
+
+Do not return to the old body-header value:
+
+```css
+width: 91.5pt;
+top: 26.5pt;
+```
 
 ## Sample First
 
@@ -372,6 +408,7 @@ doc destinations: 41
 link annotations: 70+
 image XObjects: 180+
 fonts: SourceHanSansCN-Regular, SourceHanSansCN-Bold, AppleColorEmoji
+header logo: cover and body header logo sizes match
 ```
 
 These numbers may shift when the handbook changes. Use them as alarms, not constants.

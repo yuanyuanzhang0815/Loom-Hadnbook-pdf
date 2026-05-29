@@ -35,6 +35,7 @@ These rules are locked by user review. Do not change them during future fixes un
 11. The TOC must be single-column, vertical, clickable, and include right-aligned page numbers.
 12. Do not force every source web page to start a new PDF page. Let short pages flow to reduce blank space; only top-level sections may start on a new page.
 13. Header, logo position, header line, cover, footer, image sizes, and font logic are locked to the current accepted version.
+14. Header logo calibration is exact: cover and body header logo use `width: 63pt`, `top: 32pt`, with the header line at `top: 55pt`. The visible logo bbox should be about `60x16-18pt` on page 1 and about `61x17pt` on body pages.
 
 Before changing implementation, read:
 
@@ -122,6 +123,7 @@ file size: under 50 MB
 TOC doc destinations: 41
 image XObjects: high, currently around 180+
 fonts: SourceHanSansCN-Regular, SourceHanSansCN-Bold, AppleColorEmoji only
+header logo: cover and body headers visually match; normal body header must not use the older 91.5pt oversized logo
 ```
 
 These numbers can change when the online handbook changes. Treat them as sanity checks, not fixed constants.

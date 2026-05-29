@@ -94,6 +94,7 @@ async function main() {
       bodyFont: "SourceHanSansCN-Regular 10.5pt, line-height 1.5",
       heading: "模板标题层级：h1 22pt, h2 16pt, h3 15pt, h4 14pt",
       toc: "single-column vertical, dotted leaders, page numbers",
+      headerLogo: "matches cover header: img width 63pt, top 32pt, header line top 55pt",
     },
     semanticClean,
   };
@@ -487,15 +488,24 @@ function templateCss() {
       position: absolute;
       left: 90pt;
       right: 90pt;
-      top: 42.55pt;
-      height: 26pt;
+      top: 0;
+      height: 72pt;
     }
     .cover-first-header img {
       position: absolute;
       right: 0;
-      top: -6pt;
-      width: 91.5pt;
+      top: 32pt;
+      width: 63pt;
       height: auto;
+    }
+    .cover-first-header::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 55pt;
+      height: 0;
+      border-top: .4pt solid #9ca3af;
     }
     .cover-section0 {
       position: absolute;
@@ -892,15 +902,15 @@ function buildHeaderFooterOverlayHtml(pageCount) {
     .header-logo {
       position: absolute;
       right: 90pt;
-      top: 26.5pt;
-      width: 91.5pt;
+      top: 32pt;
+      width: 63pt;
       height: auto;
     }
     .header-line {
       position: absolute;
       left: 90pt;
       right: 90pt;
-      top: 58pt;
+      top: 55pt;
       height: 0;
       border-top: .4pt solid #9ca3af;
     }
