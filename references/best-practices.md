@@ -1,33 +1,71 @@
 # Loom Handbook PDF Best Practices
 
-This playbook explains how to reproduce the current accepted `织灵产品使用手册.pdf`.
+This playbook is intentionally detailed so another agent can reproduce the accepted `织灵产品使用手册.pdf` without rediscovering the same mistakes.
 
-The authoritative visual spec is `current-template-spec.md`. If there is any conflict, follow that file.
+The authoritative spec is `current-template-spec.md`. If this playbook and the spec conflict, follow the spec.
 
-## Objective
+## Goal
 
-Generate a polished A4 PDF from the published Coda Loom online handbook:
+Generate a polished A4 PDF from:
 
 ```text
 https://loom.aicoda.tech/handbook/docs/%E4%BA%A7%E5%93%81%E4%BB%8B%E7%BB%8D
 ```
 
-The final PDF should:
+The output must:
 
-- use the online handbook content and order,
-- use the company template first page as the cover,
-- use only the official company logo asset,
+- use online handbook content and order,
+- use company template visual rules,
+- use the official company logo asset only,
+- embed only the accepted Source Han Sans / Apple emoji fonts,
+- preserve Chinese punctuation,
 - include a single-column clickable TOC with page numbers,
 - preserve images, tables, links, and code blocks,
-- reduce blank space by letting short sections flow,
-- use template header/footer,
-- stay below 50 MB unless the user changes the limit.
+- reduce blank space by allowing short source pages to flow,
+- pass automated verification and visual inspection,
+- stay under 50 MB unless the user changes the limit.
+
+## What Went Wrong Before
+
+Avoid these known failures:
+
+- Reading Feishu/wiki tree order produced `产品介绍 -> 名词解释`, which was wrong.
+- Treating each website page as a forced PDF page created many blank areas.
+- Reusing Docusaurus visual CSS made the PDF look like a webpage screenshot, not a formal document.
+- Remote lazy-loaded images produced blank image areas.
+- A two-column TOC looked informal and made page numbers harder to read.
+- Footer post-processing once broke clickable TOC destinations.
+- Missing fonts caused WPS/macOS fallback fonts such as `STKaiti`, `STHeiti`, `DengXian-Light`, or `Helvetica`.
+- Broad text normalization changed Chinese punctuation into ASCII punctuation.
+- A screenshot/logo approximation violated the official logo rule.
+
+## Correct Pipeline
+
+Run `scripts/generate_handbook_pdf.mjs`.
+
+It should perform this pipeline:
+
+1. Check `assets/company-logo.png`.
+2. Check all three font files.
+3. Build or read the cached online source.
+4. Crawl order from Docusaurus next-page pagination, not Feishu tree order.
+5. Download all remote images locally.
+6. Convert source HTML to clean semantic body HTML.
+7. Remove source classes, inline styles, `data-*`, nav, header, footer, sidebars, Docusaurus wrappers, and theme layout.
+8. Build template-styled HTML with cover, TOC, body, header/footer placeholders, and named destinations.
+9. Render a preflight PDF.
+10. Extract exact page numbers for `/doc-N` destinations.
+11. Rebuild TOC with page numbers.
+12. Render draft PDF.
+13. Slice first N pages only if `--sample-pages` is provided.
+14. Apply the accepted header/footer overlay without destroying links/destinations.
+15. Normalize PDF font names to the accepted allowlist.
+16. Write a generation report.
+17. Verify the PDF.
 
 ## Source Order
 
-Use the online handbook as source of truth. Do not use Feishu wiki tree order for chapter sequence.
-
-Follow the Docusaurus next-page pagination link:
+Use the online handbook as the source of truth. Follow:
 
 ```html
 pagination-nav__link pagination-nav__link--next
@@ -43,68 +81,209 @@ Expected opening order:
 会话&工作区
 ```
 
-If `名词解释` appears immediately after `产品介绍`, the order source is wrong.
+If the order starts with `产品介绍 -> 名词解释`, stop and fix the crawler/source. Do not manually reorder random pages.
 
-## Pipeline
+## Semantic Cleaning
 
-Use `scripts/generate_handbook_pdf.mjs`.
+The final render should use only semantic elements:
 
-It does the following:
-
-1. Checks that `assets/company-logo.png` exists.
-2. Uses cached online handbook HTML when present.
-3. If cache is missing or `--refresh` is passed, calls `generate_raw_handbook_pdf.mjs` to crawl the online handbook and localize images.
-4. Reads cached sections from `work-online/online-handbook.html` and order from `work-online/online-order.json`.
-5. Builds template-styled HTML with the confirmed cover, TOC, and body layout.
-6. Renders a preflight PDF.
-7. Extracts exact page numbers from `/doc-N` PDF destinations.
-8. Rebuilds the HTML with TOC page numbers.
-9. Renders the draft PDF.
-10. Optionally slices the first N pages when `--sample-pages` is provided.
-11. Adds template headers/footers while preserving destinations and links.
-12. Writes a JSON generation report.
-
-## Sample First
-
-For layout iteration, use:
-
-```bash
-node scripts/generate_handbook_pdf.mjs \
-  --sample-pages 10 \
-  --filename "织灵产品使用手册-模板版前10页样稿.pdf"
+```text
+h1 h2 h3 h4
+p
+ul ol li
+table thead tbody tr th td
+img
+pre code
+a
 ```
 
-Use this to check:
+Remove:
 
-- cover,
-- TOC,
-- fonts,
-- header/footer,
-- body density,
-- image placement.
+- `class`,
+- `style`,
+- `data-*`,
+- Docusaurus `theme-doc-*`,
+- Docusaurus sidebar/sidebar collapse state,
+- website header/nav/footer,
+- page breadcrumbs,
+- website next/previous cards,
+- website TOC,
+- website theme CSS,
+- empty wrappers.
 
-After approval, generate the full PDF without `--sample-pages`.
+Preserve:
 
-## Cover Rules
+- text,
+- heading levels,
+- list structure,
+- table content,
+- image sources after localization,
+- code text,
+- links.
 
-The cover must follow the company template first page (`Section0`):
+Do not clean by flattening everything into plain text. That destroys lists, headings, links, tables, and code blocks.
 
-- A4.
-- Top/bottom margin `72pt`.
-- Left/right margin `90pt`.
-- First header with right-aligned official company logo.
-- First paragraph: `编号：` plus blank underline.
-- Second paragraph: `密级：` plus blank underline.
-- Two blank spacer paragraphs.
-- Centered title `织灵产品使用手册`.
-- Title style: `黑体`, bold, `42pt`.
-- First footer:
-  - `内部资料  禁止公开`
-  - `Coda Intellect Tech Co., Ltd Confidential`
+## Font Rules
 
-Do not add decorative corners, dots, product metadata cards, date pills, generated blue graphics, or old marketing-style cover elements.
+The accepted font implementation is strict:
+
+```text
+SourceHanSansCN-Regular
+SourceHanSansCN-Bold
+AppleColorEmoji
+```
+
+The final PDF font table must contain only these names.
+
+Implementation guidance:
+
+- Use bundled `assets/fonts/*.ttf` through `@font-face`.
+- Body text uses `SourceHanSansCN-Regular`.
+- Headings and bold text use `SourceHanSansCN-Bold`.
+- Emoji/special symbols use `AppleColorEmoji`.
+- Run `normalize_pdf_font_names.py` after PDF generation.
+- Verify with `verify_handbook_pdf.py`.
+
+Do not rely on system fonts. The user's machine may have WPS or Office fonts, but another agent's machine may not.
+
+Disallowed final PDF fonts:
+
+```text
+STKaiti
+STHeiti
+DengXian-Light
+Helvetica
+Times
+Arial
+PingFang
+Songti
+Kaiti
+SimSun
+```
+
+If any disallowed font appears, do not ship.
+
+## Punctuation Rules
+
+Preserve source Chinese punctuation exactly.
+
+Correct:
+
+```text
+织灵，Coda Loom，是一款……
+```
+
+Wrong:
+
+```text
+织灵,Coda Loom,是一款……
+```
+
+Never use broad `NFKC` over whole paragraphs. It can convert Chinese punctuation into half-width ASCII punctuation.
+
+Allowed targeted normalization:
+
+- replace `\u00a0` with a normal space,
+- remove emoji variation selector `\uFE0F` only if it breaks rendering,
+- normalize CJK radical/compatibility glyph ranges only:
+  - `\u2E80-\u2EFF`
+  - `\u2F00-\u2FDF`
+  - `\uF900-\uFAFF`
+
+Do not normalize:
+
+- `，。；：、（）《》“”‘’`
+- mixed Chinese/English phrases,
+- source wording.
+
+Regression check page 4 or equivalent:
+
+```text
+must contain: 织灵，Coda Loom，是
+must not contain: 织灵,Coda Loom,是
+must contain: 少量人工负责指导和审核，主要工作由ADE来完成
+```
+
+## Image Rules
+
+Before PDF rendering:
+
+- turn relative URLs into absolute URLs,
+- download remote images locally,
+- replace `src` with `file://` URLs,
+- remove `loading`, `decoding`, `srcset`, `sizes`,
+- wait for all images to load in Playwright,
+- fail on zero natural width/height,
+- preserve aspect ratio,
+- keep current accepted image sizing.
+
+Do not ship a PDF with blank screenshot areas.
+
+The full current PDF should have many image XObjects, currently around 180+. A very low image count means the image pipeline broke.
+
+## TOC Rules
+
+TOC must be:
+
+- single-column,
+- vertical,
+- formal,
+- dotted leader lines,
+- page numbers on the right,
+- clickable.
+
+Do not use a two-column TOC.
+
+Never guess page numbers. Use two-pass rendering:
+
+1. Render preflight PDF.
+2. Read named destination page numbers.
+3. Rebuild TOC.
+4. Render final PDF.
+
+After header/footer overlay, verify links and destinations still exist.
+
+## Pagination Rules
+
+The website has many short pages. PDF should not treat every web page as a hard page break.
+
+Use this approach:
+
+- Cover is page 1.
+- TOC begins page 2.
+- Body flows naturally.
+- Top-level sections may start on a new page.
+- Subpages flow unless a forced break is needed for readability.
+- Avoid breaking screenshots, tables, and code blocks.
+- Do not leave large blank pages just because a source web page ended.
+
+## Header/Footer Rules
+
+Cover:
+
+- uses first-page template header/footer only,
+- no normal overlay.
+
+TOC/body:
+
+- header left: `织灵产品使用手册`,
+- header right: `assets/company-logo.png`,
+- header line: current accepted position/weight,
+- footer left: `版本：v1.0.0`,
+- footer center: `Coda Intellect Tech Co., Ltd Confidential`,
+- footer right: plain page number only.
+
+Never write:
+
+```text
+第 2 页
+第 2 页 / 共 84 页
+2 / 84
+```
 
 ## Logo Rules
+
+The official company logo is an asset, not a visual reference.
 
 Only use:
 
@@ -112,114 +291,101 @@ Only use:
 assets/company-logo.png
 ```
 
-Never:
+Forbidden:
 
-- redraw the Logo,
-- OCR the Logo,
-- trace it,
-- rebuild it with text or shapes,
-- generate a substitute,
-- use `header147.png` or screenshots as fallback,
-- change the Logo ratio.
+- OCR,
+- redraw,
+- trace,
+- rebuilding with text and shapes,
+- AI generation,
+- screenshot replacement,
+- changing proportions,
+- fallback text logo,
+- fallback generated logo.
 
-If `assets/company-logo.png` is missing or unreadable, stop and tell the user. Do not improvise.
+If the asset cannot be read, stop and explain.
 
-## TOC Rules
+## Sample First
 
-The TOC must be:
+For visual review, generate:
 
-- single-column,
-- vertical,
-- clickable,
-- formal/business-like,
-- dotted leader lines,
-- right-aligned page numbers.
+```bash
+node scripts/generate_handbook_pdf.mjs \
+  --sample-pages 10 \
+  --filename "织灵产品使用手册-模板版前10页样稿.pdf"
+```
 
-Do not use the old two-column TOC.
+Check:
 
-Never guess page numbers. Render a preflight PDF and extract destination page numbers.
+- cover,
+- TOC page numbers,
+- TOC click behavior,
+- font table,
+- page 4 text/punctuation,
+- header/footer,
+- image sizing,
+- blank-space reduction.
 
-## Body Rules
+Only after approval, generate the full PDF.
 
-Use the template document feel, not the website screen layout:
+## Full Generation
 
-- A4.
-- Margins: top/bottom `72pt`, left/right `90pt`.
-- Body font: `华文楷体`, `10.5pt`, line-height around `1.5`.
-- H1: `黑体`, `22pt`.
-- H2: `黑体`, `16pt`.
-- H3: `黑体`, about `15pt`.
-- H4: `黑体`, `14pt`.
+Generate:
 
-Pagination:
+```bash
+node scripts/generate_handbook_pdf.mjs \
+  --filename "织灵产品使用手册.pdf"
+```
 
-- Do not force every online doc page to start a new PDF page.
-- Let short sections flow to reduce blank space.
-- Top-level sections may start on a new page.
-- Avoid breaking screenshots, tables, and code blocks.
-
-## Image Rules
-
-Before PDF rendering:
-
-- strip lazy loading attributes,
-- turn relative URLs into absolute URLs,
-- download images locally,
-- replace `src` with file URLs,
-- wait for every image to finish loading,
-- fail if any image is broken or has zero natural size.
-
-Do not ship a PDF with blank image placeholders.
-
-## Header And Footer Rules
-
-Cover page:
-
-- uses first header/footer from the template cover structure,
-- does not get normal page overlay.
-
-TOC/body pages:
-
-- header left: `织灵产品使用手册`
-- header right: official company logo from `assets/company-logo.png`
-- footer left: `版本：v1.0.0`
-- footer center: `Coda Intellect Tech Co., Ltd Confidential`
-- footer right: plain page number only
-
-Do not output footer text like `第 2 页 / 共 10 页`.
+Use `--refresh` when the user wants the latest online content. Cached source is acceptable for layout-only iteration.
 
 ## Verification
 
-Run `verify_handbook_pdf.py` after full generation.
+Always run:
 
-Also visually inspect:
+```bash
+python scripts/verify_handbook_pdf.py \
+  --pdf "/path/to/织灵产品使用手册.pdf" \
+  --expected-docs 41 \
+  --max-size-mb 50
+```
+
+Then visually inspect:
 
 - page 1 cover,
 - page 2 TOC,
-- one text-heavy page,
+- page 4 or first real body page,
 - one image-heavy page,
 - last page.
 
-Check that:
+Do not rely on "the command succeeded." A visually broken PDF can still be a technically valid PDF.
 
-- cover title and fields match template first page,
-- official Logo is present and proportionally scaled,
-- TOC page numbers exist,
-- TOC clicks jump,
-- images render,
-- footer positions are correct,
-- file size is under limit.
+## Current Healthy Signals
 
-## Expected Current Signals
-
-For the current online handbook, a healthy full run is roughly:
+For the current online handbook, the accepted full output is expected to be close to:
 
 ```text
 documents: 41
-pages: about 85
-toc page numbers: 41
-file size: under 50 MB
-image objects: high enough to confirm screenshots are embedded
+output pages: 84
+file size: about 39 MB
+doc destinations: 41
+link annotations: 70+
+image XObjects: 180+
+fonts: SourceHanSansCN-Regular, SourceHanSansCN-Bold, AppleColorEmoji
 ```
 
-These are sanity ranges. The online handbook can change.
+These numbers may shift when the handbook changes. Use them as alarms, not constants.
+
+## User-Facing Response
+
+Do not dump logs. Tell the user:
+
+- PDF path,
+- full or sample,
+- source URL,
+- whether refresh was used,
+- pages and size,
+- fonts passed,
+- TOC page numbers/clicks passed,
+- images passed,
+- any caveat.
