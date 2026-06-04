@@ -1,51 +1,26 @@
-# Current Template PDF Spec
+# Current Accepted DOCX Specification
 
-This is the current accepted target for `织灵产品使用手册.pdf`.
+This file is the authoritative spec for the current `织灵产品使用手册.docx`.
 
-## Priority Rules
+## Output
 
-The source webpage is content only. The company template is visual style.
+Default output:
 
-Keep from the source webpage:
+```text
+dist/织灵产品使用手册.docx
+```
 
-- body text,
-- title text,
-- title hierarchy,
-- images,
-- tables,
-- code blocks,
-- links,
-- chapter order,
-- previous/next document order.
-
-Never keep from the source webpage:
-
-- Docusaurus layout,
-- Docusaurus header/footer/nav/sidebar,
-- website fonts,
-- website sizes,
-- website colors,
-- website spacing,
-- website cards,
-- website TOC,
-- website CSS classes,
-- website inline styles,
-- theme CSS,
-- website pagination behavior.
-
-When source and template conflict, use source for content and template for visual style.
+The DOCX is the accepted deliverable. PDF export is user/manual unless explicitly requested.
 
 ## Source
 
-Default source URL:
+Use the online handbook:
 
 ```text
 https://loom.aicoda.tech/handbook/docs/%E4%BA%A7%E5%93%81%E4%BB%8B%E7%BB%8D
 ```
 
-Use the online published order by following the Docusaurus next-page pagination link. Do not use Feishu node order for chapter sequence.
-
-Expected start after cover and TOC:
+Follow the online order from `work-online/online-order.json`. The expected opening sequence is:
 
 ```text
 产品介绍
@@ -53,193 +28,218 @@ Expected start after cover and TOC:
 新用户登录
 工作空间
 会话&工作区
+如何使用会话
+开始一个新会话
+借助织灵内置的微场景，快速开启高效工作
 ```
 
-If `名词解释` appears immediately after `产品介绍`, the order source is wrong.
+If `名词解释` appears immediately after `产品介绍`, the source order is wrong.
 
-## Required Assets
+## Template Boundary
 
-Only these local assets are allowed for final rendering:
+The Word template controls only:
 
-```text
-assets/company-logo.png
-assets/fonts/SourceHanSansCN-Regular.ttf
-assets/fonts/SourceHanSansCN-Bold.ttf
-assets/fonts/AppleColorEmoji.ttf
-```
+- cover page structure;
+- page header;
+- page footer;
+- company logo placement;
+- header horizontal rule;
+- footer version text;
+- footer company text;
+- footer page-number position.
 
-Logo rules:
+The Word template does not control:
 
-- Use only `assets/company-logo.png`.
-- Only equal-ratio scaling is allowed.
-- Do not redraw, OCR, trace, rebuild with text or shapes, generate, substitute, crop, stretch, or recolor.
-- If the file is missing or unreadable, stop.
-
-Font rules:
-
-- Final PDF font table must contain only `SourceHanSansCN-Regular`, `SourceHanSansCN-Bold`, `AppleColorEmoji`.
-- The generator should embed these fonts through `@font-face`.
-- The normalizer may rename embedded subset font names to the accepted names.
-- Never ship a PDF whose font table includes `STKaiti`, `STHeiti`, `DengXian-Light`, `Helvetica`, `Times`, `Arial`, or other fallback fonts.
+- body font size;
+- body heading scale;
+- TOC item font rules;
+- highlighter block conversion;
+- source content order.
 
 ## Cover
 
-The cover is based on the first page of `可达智灵通用文档模板(2).docx`, not on a screenshot approximation.
+Use `assets/company-template.docx`.
 
-Current accepted cover rules:
+Cover title:
 
-- A4 page.
-- Uses company template first-page margins and positioning.
-- Right-aligned official logo in the first header.
-- First header logo calibration:
-  - image CSS width: `63pt`
-  - image top: `32pt`
-  - visible logo bbox: about `60x16-18pt`
-  - header line top: `55pt`
-- `编号：` field is blank.
-- `密级：` field is blank.
-- Two blank spacer paragraphs before the title area.
-- Center title: `织灵产品使用手册`.
-- Cover footer:
-  - `内部资料  禁止公开`
-  - `Coda Intellect Tech Co., Ltd Confidential`
-- Cover page does not receive the normal body header/footer overlay.
+```text
+织灵产品使用手册
+```
 
-Do not add old marketing cover graphics, metadata cards, date pills, generated blue shapes, decorative corners, or dot patterns.
+Do not redesign the cover. Do not rebuild the logo. Do not add the old marketing cover.
+
+## Header
+
+Header document name must be:
+
+```text
+织灵产品手册
+```
+
+Replace any template placeholder:
+
+```text
+文档名称
+产品文档名称
+```
+
+with `织灵产品手册`.
+
+Keep the template logo, line, and position. Do not manually redraw header furniture.
+
+## Footer
+
+Footer format:
+
+```text
+left:   版本：v1.0.0
+center: Coda Intellect Tech Co., Ltd Confidential
+right:  PAGE field
+```
+
+The right page number must be a Word dynamic `PAGE` field. It must not be static text.
+
+Do not output:
+
+```text
+第 2 页
+第 2 页 / 共 10 页
+共 10 页
+```
+
+Do not set page numbering restart on body sections:
+
+```xml
+<w:pgNumType w:start="1"/>
+```
+
+Remove `w:start`, `w:chapStyle`, and `w:chapSep` from generated section page-number settings.
+
+## Body Typography
+
+Use the confirmed handbook style system:
+
+| Role | Font | Size | Weight | Italic |
+| --- | --- | ---: | --- | --- |
+| Body | SourceHanSansCN-Regular | 10.5 pt | regular | no |
+| Page title depth 1 | SourceHanSansCN-Bold | 22 pt | bold | no |
+| Page title depth 2 | SourceHanSansCN-Bold | 16 pt | bold | no |
+| Page title depth 3 | SourceHanSansCN-Bold | 15 pt | bold | no |
+| Page title depth 4 | SourceHanSansCN-Bold | 14 pt | bold | no |
+| Body H1 | SourceHanSansCN-Bold | 22 pt | bold | no |
+| Body H2 | SourceHanSansCN-Bold | 16 pt | bold | no |
+| Body H3 | SourceHanSansCN-Bold | 15 pt | bold | no |
+| Body H4 | SourceHanSansCN-Bold | 14 pt | bold | no |
+| Table header | SourceHanSansCN-Bold | 10.5 pt | bold | no |
+| Table body | SourceHanSansCN-Regular | 10 pt | regular | no |
+| Code block | SourceHanSansCN-Regular | 9 pt | regular | no |
+
+Do not fall back to STKaiti, STHeiti, DengXian-Light, Helvetica, or template body fonts for the handbook body.
 
 ## TOC
 
-The TOC must be formal and business-like:
+The TOC is visible Word content plus dynamic fields:
 
-- single-column vertical layout,
-- no two-column layout,
-- dotted leaders,
-- right-aligned page number,
-- clickable link for each entry,
-- enough pages if the TOC grows.
+- each entry is a paragraph;
+- each entry links to a Word bookmark on the target section title;
+- page number is a `PAGEREF` field;
+- fields are marked dirty/updateable;
+- `settings.xml` includes `<w:updateFields w:val="true"/>`.
 
-Never guess page numbers. The generator must:
+TOC style rules:
 
-1. Render a preflight PDF.
-2. Extract `/doc-N` destination page numbers.
-3. Rebuild the HTML with exact page numbers.
-4. Render the final PDF.
+| TOC Level | Font | Size | Weight | Italic | Indent | Leader | Page Number |
+| --- | --- | ---: | --- | --- | --- | --- | --- |
+| TOC 1 | SourceHanSansCN-Bold | 10 pt | bold | no | 0 | dotted | right-aligned |
+| TOC 2 | SourceHanSansCN-Regular | 10 pt | regular | no | +420 dxa | dotted | right-aligned |
+| TOC 3 | SourceHanSansCN-Regular | 10 pt | regular | yes | +840 dxa | dotted | right-aligned |
+| TOC 4 | SourceHanSansCN-Regular | 9 pt | regular | no | +1260 dxa | dotted | right-aligned |
 
-## Body Layout
-
-The body follows the company document template feel, but the accepted font implementation is Source Han Sans.
-
-Page setup:
-
-- A4.
-- Margins: top/bottom `72pt`, left/right `90pt`.
-- Header/footer margins follow the current accepted template layout.
-- Body font: `SourceHanSansCN-Regular`, `10.5pt`, line-height about `1.5`.
-- Bold text and headings: `SourceHanSansCN-Bold`.
-- Emoji/symbol fallback: `AppleColorEmoji`.
-- H1: about `22pt`.
-- H2: about `16pt`.
-- H3: about `15pt`.
-- H4: about `14pt`.
-
-Do not use template font names directly if the local machine lacks them. The final accepted substitute is Source Han Sans, and the PDF font table must prove it.
-
-Pagination:
-
-- Do not force every online handbook page to become a new PDF page.
-- Let short sections flow continuously to reduce blank space.
-- Top-level sections may start on a new page.
-- Avoid breaking screenshots, tables, and code blocks when practical.
-
-Image handling:
-
-- Strip lazy attributes before rendering.
-- Localize remote image `src` values to file URLs.
-- Preserve image aspect ratio and current accepted image sizing.
-- Wait for all images to render.
-- Fail if any image is broken or has zero natural dimensions.
-
-## Header And Footer
-
-Cover page:
-
-- first-page header with official logo,
-- first-page confidentiality footer,
-- no normal page overlay.
-
-TOC/body pages:
-
-- Header left: `织灵产品使用手册`.
-- Header right: official company logo from `assets/company-logo.png`.
-- Header right logo must match the cover header logo, not the older oversized body logo:
-  - image CSS width: `63pt`
-  - image top: `32pt`
-  - visible logo bbox: about `61x17pt`
-- Header line: current accepted horizontal rule position and weight, `top: 55pt`.
-- Footer left: `版本：v1.0.0`.
-- Footer center: `Coda Intellect Tech Co., Ltd Confidential`.
-- Footer right: plain page number only, for example `2`.
-
-Wrong footer examples:
-
-- `第 2 页`
-- `第 2 页 / 共 84 页`
-- `2 / 84`
-- company English on the right
-- page number in the center
-
-## Text And Punctuation
-
-Preserve source text and punctuation. Do not run broad normalization over all text.
-
-Allowed text normalization:
-
-- non-breaking spaces to normal spaces,
-- remove emoji variation selector `U+FE0F` if it breaks PDF rendering,
-- normalize CJK compatibility/radical glyph ranges only when needed for font coverage.
-
-Forbidden text normalization:
-
-- converting `，` to `,`,
-- converting `。` to `.`,
-- converting `：` to `:`,
-- converting `；` to `;`,
-- converting `、` to `,`,
-- converting `（ ）` to `( )`,
-- adding/removing spaces in mixed Chinese/English phrases,
-- rewriting source copy for readability.
-
-Regression example:
+TOC text must include hierarchical numbering:
 
 ```text
-Correct: 织灵，Coda Loom，是一款……
-Wrong:   织灵,Coda Loom,是一款……
+1. 一级标题 ........ 1
+1.1. 二级标题 ........ 1
+1.1.1. 三级标题 ........ 1
+1.1.1.1. 四级标题 ........ 1
 ```
 
-## Review Samples
+## Content Cleaning
 
-For layout review, generate only the first 10 pages:
+Remove:
 
-```bash
-node scripts/generate_handbook_pdf.mjs --sample-pages 10 --filename "织灵产品使用手册-模板版前10页样稿.pdf"
+- Docusaurus navigation/header/footer/sidebar;
+- Docusaurus classes and inline styles;
+- source `来源：https://...` lines;
+- duplicate page title at the top of each source article;
+- Markdown residue: `**`, backticks, fenced markers;
+- source emoji in text;
+- keycap residue such as `U+20E3`;
+- zero-width characters;
+- private-use characters;
+- replacement character `U+FFFD`.
+
+Normalize:
+
+```text
+⽤ -> 用
+⼯ -> 工
+⼈ -> 人
+⼊ -> 入
+⻓ -> 长
+⾸ -> 首
+⻚ -> 页
+⽬ -> 目
+⽂ -> 文
+⼿ -> 手
+⽌ -> 止
 ```
 
-After approval, generate full PDF without `--sample-pages`.
+Preserve:
 
-## Hard Failure Conditions
+- Chinese punctuation;
+- mixed Chinese/English text;
+- links;
+- tables;
+- screenshots;
+- code blocks;
+- lists.
 
-Stop instead of shipping when:
+## Highlighter And Quote Blocks
 
-- `assets/company-logo.png` is missing or unreadable,
-- any required font file is missing,
-- online crawl returns zero documents,
-- source order is wrong,
-- image download/render fails,
-- TOC page-number extraction returns too few destinations,
-- generated PDF has no link annotations,
-- post-processing destroys named destinations,
-- font table includes disallowed fonts,
-- Chinese punctuation is converted to ASCII punctuation,
-- body header logo is larger than the cover header logo or uses the old `91.5pt` width,
-- file size exceeds the agreed maximum,
-- output is blank or visibly broken.
+Do not inherit web CSS. Do not screenshot highlighter blocks.
+
+Convert blockquote/highlighter-like blocks into a one-cell Word table:
+
+- fill color `F3F7FF`;
+- left border blue `2F7DFF`;
+- no top/right/bottom borders;
+- inner padding around 180/260 dxa;
+- all text remains editable;
+- bullet/numbered content remains text.
+
+This is required because plain shaded paragraphs do not visually group the whole block.
+
+## Images
+
+Images must be copied into `word/media` and inserted as Word drawing objects.
+
+Rules:
+
+- preserve aspect ratio;
+- keep within body width;
+- do not stretch;
+- do not render text as one giant image;
+- screenshots may contain emoji because they are product UI images.
+
+## Field Update Requirement
+
+The generated DOCX must contain dynamic fields, but their displayed page numbers may not materialize until WPS/Word updates fields.
+
+Required field types:
+
+- footer page number: `PAGE`;
+- TOC page number: `PAGEREF`;
+- settings update: `<w:updateFields w:val="true"/>`.
+
+When visual finalization matters, open the file in WPS/Word and update fields before exporting PDF.

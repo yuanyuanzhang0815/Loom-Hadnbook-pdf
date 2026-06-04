@@ -1,0 +1,25 @@
+{
+  "name": "loom-handbook-pdf",
+  "version": "1.0.0",
+  "description": "Generate the editable Coda Loom handbook DOCX from the online handbook.",
+  "scripts": {
+    "generate:docx": "python3 scripts/generate_handbook_docx.py",
+    "verify:docx": "python3 scripts/verify_handbook_docx.py --docx dist/织灵产品使用手册.docx"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuanyuanzhang0815/Loom-Hadnbook-pdf.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/yuanyuanzhang0815/Loom-Hadnbook-pdf/issues"
+  },
+  "homepage": "https://github.com/yuanyuanzhang0815/Loom-Hadnbook-pdf#readme",
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "playwright": "^1.60.0"
+  }
+}

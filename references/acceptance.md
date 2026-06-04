@@ -1,44 +1,46 @@
-# Loom Handbook PDF Acceptance Checklist
+# Loom Handbook DOCX Acceptance Checklist
 
-Use this checklist before saying the PDF is done.
+Use this checklist before telling the user the DOCX is ready.
 
-## Required Checks
+## Required Output
 
 | Check | Expected |
 | --- | --- |
+| Output file | `dist/织灵产品使用手册.docx` |
 | Source URL | `https://loom.aicoda.tech/handbook/docs/%E4%BA%A7%E5%93%81%E4%BB%8B%E7%BB%8D` |
-| Source role | Content only, not visual style |
-| Template role | Cover, margins, header/footer, TOC style, typography, pagination |
-| Source order | Online next-page order |
-| First body order | `产品介绍 -> 首页 -> 新用户登录 -> 工作空间 -> 会话&工作区` |
-| Semantic cleanup | No source classes/styles/data/theme/nav/sidebar in final render |
-| Cover | Company template first page; title `织灵产品使用手册`; `编号` and `密级` blank |
-| Logo | Only `assets/company-logo.png`; equal-ratio scaling; no redraw/OCR/generated substitute |
-| Fonts | Only `SourceHanSansCN-Regular`, `SourceHanSansCN-Bold`, `AppleColorEmoji` |
-| Forbidden fonts | No `STKaiti`, `STHeiti`, `DengXian-Light`, `Helvetica`, or other fallbacks |
-| Chinese punctuation | Preserved; no Chinese comma/period/colon/bracket conversion to ASCII |
-| Key page-4 phrase | `少量人工负责指导和审核，主要工作由ADE来完成` is present |
-| TOC | Single-column, clickable, dotted leaders, page numbers |
-| Body | A4, template margins, reduced blank space, readable |
-| Images | Localized and visible; no blank screenshot areas |
-| Header | Current accepted layout, right official logo, horizontal line intact |
-| Header logo size | Cover and body header logo visually match; body header does not use the old oversized `91.5pt` logo |
-| Footer | Left version, center company English, right plain page number only |
-| File size | Under 50 MB unless user changes the limit |
-| Final output | Actual PDF path returned |
+| Source order | Follows online order, not Feishu tree order |
+| Template | Uses `assets/company-template.docx` |
+| Cover title | `织灵产品使用手册` |
+| Header name | `织灵产品手册` |
+| Logo | Uses official template/logo assets only; no redraw or generated substitute |
+| Footer | Left version, center company English, right dynamic `PAGE` field |
+| Page numbering | Continuous; no body section `w:start="1"` |
+| TOC | Visible entries, hierarchical numbers, dotted leaders, bookmarks, dynamic `PAGEREF` fields |
+| Body font | SourceHanSansCN-Regular 10.5 pt |
+| Heading fonts | SourceHanSansCN-Bold 22/16/15/14 pt |
+| TOC fonts | TOC 1-3 10 pt; TOC 4 9 pt; TOC 1 bold; TOC 3 italic |
+| Chinese punctuation | Preserved as full-width punctuation |
+| Emoji text | Removed from source text |
+| Keycap residue | Removed, especially `U+20E3` |
+| Markdown residue | No `**`, backticks, or fenced markers |
+| Compatibility Unicode | Normalized; no `⽤`, `⼯`, `⼈`, `⼊`, `⻓` |
+| Highlighter blocks | Editable one-cell Word tables with light fill and blue left border |
+| Images | Embedded in `word/media`; not blank placeholders |
+| Links | Preserved as hyperlinks where possible |
 
-## Script Verification
+## Verification Command
 
 Run:
 
 ```bash
-python scripts/verify_handbook_pdf.py \
-  --pdf "/path/to/织灵产品使用手册.pdf" \
+python3 scripts/verify_handbook_docx.py \
+  --docx "dist/织灵产品使用手册.docx" \
   --expected-docs 41 \
+  --min-images 90 \
   --max-size-mb 50
 ```
 
-The verifier must return:
+The report must include:
 
 ```json
 {
@@ -46,72 +48,46 @@ The verifier must return:
 }
 ```
 
-Current healthy full-output signals:
+## Manual WPS/Word Check
+
+Open the DOCX and check:
+
+1. Cover page title.
+2. Header left text is `织灵产品手册`.
+3. Footer right page number updates correctly after field update.
+4. TOC entries have dotted leaders and page numbers after field update.
+5. TOC entries click to the correct sections.
+6. Body font does not look like template fallback.
+7. Highlighter blocks are boxed as one visual unit.
+8. No garbled emoji residue appears in text.
+9. Screenshots are visible.
+
+## Expected Current Signals
+
+For the current handbook:
 
 ```text
-pages: about 84
-sizeMb: under 50
-links: 70+
-docDestinations: 41
-imageXObjects: 180+
-tocHasPageNumbers: true
-fonts: AppleColorEmoji, SourceHanSansCN-Bold, SourceHanSansCN-Regular
-headerLogo: page 1 and body page visible logo bbox both about 60-61pt wide
+documents: 41
+tocEntries: 41
+tocPageRefFields: 41
+tocBookmarks: 41
+mediaFiles: about 100
+file size: under 50 MB
+suspiciousTextChars: []
 ```
 
-## Manual Visual Verification
-
-Open or screenshot:
-
-1. Page 1 cover.
-2. Page 2 TOC.
-3. Page 4 body text.
-4. One image-heavy page.
-5. Last page.
-
-Look for:
-
-- company-template cover,
-- official logo is clear and proportionally scaled,
-- TOC is one vertical list with page numbers,
-- TOC entries jump,
-- screenshots display,
-- Chinese punctuation is full-width where the source uses full-width punctuation,
-- header line/logo position did not shift,
-- body header logo is the same apparent size as the cover header logo,
-- footer has center company English and plain right page number,
-- no large accidental blank areas.
-
-## Manual TOC Click Test
-
-Automated checks confirm annotations and named destinations, but manual click testing is still valuable.
-
-Click:
-
-- `首页`,
-- `飞书场景交互`,
-- `MCP`,
-- `常见问题Q&A`.
-
-The viewer should jump to the corresponding pages.
+These numbers can change when the online handbook changes.
 
 ## Final User-Facing Summary
 
 Include:
 
-- PDF path,
-- source URL,
-- full or sample,
-- page count and size,
-- font allowlist status,
-- TOC jump/page-number status,
-- image status,
-- footer status,
-- any unresolved caveat.
+- DOCX path.
+- Whether it was sample or full.
+- Verification status.
+- TOC/PAGE/PAGEREF status.
+- Header/footer status.
+- Emoji cleanup status.
+- Any remaining manual step, such as WPS field update.
 
-Avoid:
-
-- long command logs,
-- low-level implementation detail unless asked,
-- claiming a logo/image was recreated,
-- claiming "latest" if `--refresh` was not used.
+Do not include long command logs.

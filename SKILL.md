@@ -1,139 +1,159 @@
 ---
 name: loom-handbook-pdf
-description: Generate the confirmed Coda Loom / 织灵 product handbook PDF from the online handbook. Use this when asked to export, rebuild, preview, verify, or troubleshoot 织灵产品使用手册 PDF with the company template cover, official logo asset, Source Han Sans font allowlist, single-column clickable TOC with page numbers, localized screenshots, and locked header/footer.
+description: Generate the editable 织灵产品使用手册 DOCX from the online Loom handbook. Use the company Word template only for cover/header/footer/page-number structure, keep the confirmed handbook body typography, build a clickable Word TOC with dynamic page references, preserve screenshots/tables/links/code blocks, remove emoji text, and verify the DOCX before delivery.
 ---
 
-# Loom Handbook PDF
+# Loom Handbook DOCX
 
-Use this skill to generate the current accepted `织灵产品使用手册.pdf`.
+Use this skill when the user asks to generate, update, preview, troubleshoot, or package the `织灵产品使用手册` document.
 
-The online handbook is only the content source:
+The current accepted deliverable is an editable Word file:
+
+```text
+dist/织灵产品使用手册.docx
+```
+
+PDF export is no longer the default path. The user prefers DOCX because WPS/Word can update fields and make final manual edits.
+
+## Source And Template Boundary
+
+Source content:
 
 ```text
 https://loom.aicoda.tech/handbook/docs/%E4%BA%A7%E5%93%81%E4%BB%8B%E7%BB%8D
 ```
 
-The company template is the visual source. Do not copy Docusaurus layout, fonts, colors, spacing, cards, navigation, theme CSS, inline styles, or pagination into the final PDF.
+The online handbook is authoritative only for:
 
-## Locked Acceptance Rules
+- 正文文字；
+- 标题文本；
+- 标题层级；
+- 图片；
+- 表格；
+- 代码块；
+- 链接；
+- 章节顺序。
 
-These rules are locked by user review. Do not change them during future fixes unless the user explicitly asks.
+The company Word template is authoritative only for:
 
-1. Source content and chapter order follow the online Docusaurus next-page chain.
-2. Generate from clean semantic content only: `h1`-`h4`, `p`, `ul`, `ol`, `li`, `table`, `img`, `pre`, `code`, `a`.
-3. Strip source classes, styles, `data-*`, Docusaurus wrappers, page chrome, nav, theme CSS, and website pagination style.
-4. Use the company template for cover, margins, header, footer, TOC style, body typography, and PDF pagination.
-5. The PDF font table must contain only:
-   - `SourceHanSansCN-Regular`
-   - `SourceHanSansCN-Bold`
-   - `AppleColorEmoji`
-6. The PDF font table must not contain `STKaiti`, `STHeiti`, `DengXian-Light`, `Helvetica`, or other body fonts.
-7. Preserve original Chinese punctuation. Do not convert `，。；：、（）《》` into ASCII half-width punctuation.
-8. Preserve mixed Chinese/English content. Do not add or remove spaces around English tokens unless the source already has them.
-9. The official logo source is only `assets/company-logo.png`. Do not OCR, redraw, trace, rebuild with text/shapes, generate, substitute, or change its ratio.
-10. If `assets/company-logo.png` or the bundled font files are missing, stop and explain. Do not improvise.
-11. The TOC must be single-column, vertical, clickable, and include right-aligned page numbers.
-12. Do not force every source web page to start a new PDF page. Let short pages flow to reduce blank space; only top-level sections may start on a new page.
-13. Header, logo position, header line, cover, footer, image sizes, and font logic are locked to the current accepted version.
-14. Header logo calibration is exact: cover and body header logo use `width: 63pt`, `top: 32pt`, with the header line at `top: 55pt`. The visible logo bbox should be about `60x16-18pt` on page 1 and about `61x17pt` on body pages.
+- 封面；
+- 页眉；
+- 页脚；
+- 公司 logo；
+- 页眉横线；
+- 页脚版本号；
+- Confidential 文案；
+- 动态页码字段位置。
 
-Before changing implementation, read:
+Do not let the Word template override the accepted handbook body typography. Do not let Docusaurus CSS override the Word output.
 
-- `references/current-template-spec.md`
-- `references/best-practices.md`
-- `references/troubleshooting.md`
-- `references/acceptance.md`
+## Non-Negotiable Rules
+
+1. Generate DOCX first. Do not directly generate the final PDF unless the user explicitly asks.
+2. Template file must exist at `assets/company-template.docx` or be supplied with `--template`.
+3. Official logo asset is `assets/company-logo.png`. Do not redraw, OCR, trace, rebuild, screenshot, generate, or substitute the logo.
+4. Header document name must be `织灵产品手册`, not `文档名称` or `产品文档名称`.
+5. Cover title must be `织灵产品使用手册`.
+6. Footer page number must be a Word `PAGE` field, not static text.
+7. Do not set `<w:pgNumType w:start="1"/>` on body sections. Page numbering must remain continuous.
+8. TOC entries must be real visible Word paragraphs plus clickable bookmarks and dynamic `PAGEREF` fields.
+9. TOC fields and PAGE/PAGEREF fields must request update on open via `w:updateFields`.
+10. Body typography must use the confirmed SourceHanSansCN style system, not template body defaults.
+11. Source emoji in text must be removed. Product screenshots are images and must not be altered.
+12. Keycap emoji residue such as `U+20E3 COMBINING ENCLOSING KEYCAP` must be removed.
+13. Chinese punctuation must be preserved. Do not convert `，。：“”（）` to ASCII punctuation.
+14. Markdown residue such as `**`, backticks, and fenced markers must not appear in the DOCX.
+15. Compatibility Unicode residue such as `⽤`, `⼯`, `⼈`, `⼊`, `⻓` must be normalized.
+16. Web highlighter/blockquote content must be preserved as editable Word content, not screenshots.
 
 ## Bundled Files
 
-- `assets/company-logo.png`: required official company logo asset.
-- `assets/fonts/SourceHanSansCN-Regular.ttf`: required regular CJK font.
-- `assets/fonts/SourceHanSansCN-Bold.ttf`: required bold CJK font.
-- `assets/fonts/AppleColorEmoji.ttf`: required emoji font.
-- `scripts/generate_handbook_pdf.mjs`: final generator. Produces full PDF by default and supports first-N-page samples.
-- `scripts/generate_raw_handbook_pdf.mjs`: source crawler/cache builder. It is not the deliverable generator.
-- `scripts/normalize_pdf_font_names.py`: normalizes embedded PDF font names to the accepted allowlist names.
-- `scripts/verify_handbook_pdf.py`: verifies page count, size, links, destinations, images, fonts, TOC numbers, and key text/punctuation signals.
-- `references/current-template-spec.md`: exact current visual and behavioral spec.
-- `references/best-practices.md`: detailed end-to-end playbook for future agents.
-- `references/troubleshooting.md`: known failure modes and fixes.
+- `assets/company-template.docx`: current company Word template used for cover/header/footer structure.
+- `assets/company-logo.png`: official logo asset.
+- `scripts/generate_handbook_docx.py`: default generator for the accepted DOCX path.
+- `scripts/verify_handbook_docx.py`: structural verifier for DOCX fields, TOC, styles, emoji cleanup, headers, footers, and media.
+- `scripts/generate_raw_handbook_pdf.mjs`: legacy crawler/cache builder for the online Docusaurus handbook. It can refresh `work-online/online-handbook.html` and `work-online/online-order.json`.
+- `references/current-template-spec.md`: exact current output rules.
+- `references/best-practices.md`: detailed reproduction playbook.
+- `references/troubleshooting.md`: known issues and fixes.
 - `references/acceptance.md`: final checklist.
 
-## Commands
+## Quick Commands
 
-In Codex Desktop, load workspace dependencies first if the bundled Node/Python paths are unknown.
+In Codex Desktop, load workspace dependencies first. Use the bundled Python if available.
 
-Generate a fast first-10-page sample:
-
-```bash
-NODE_PATH="/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules" \
-"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node" \
-scripts/generate_handbook_pdf.mjs \
-  --sample-pages 10 \
-  --filename "织灵产品使用手册-模板版前10页样稿.pdf"
-```
-
-Generate the full PDF from cached source:
-
-```bash
-NODE_PATH="/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules" \
-"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node" \
-scripts/generate_handbook_pdf.mjs \
-  --filename "织灵产品使用手册.pdf"
-```
-
-Force a fresh crawl before generation:
-
-```bash
-NODE_PATH="/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules" \
-"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node" \
-scripts/generate_handbook_pdf.mjs \
-  --refresh \
-  --filename "织灵产品使用手册.pdf"
-```
-
-Verify a generated PDF:
+Generate the full accepted DOCX:
 
 ```bash
 "/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3" \
-scripts/verify_handbook_pdf.py \
-  --pdf "/path/to/织灵产品使用手册.pdf" \
+scripts/generate_handbook_docx.py \
+  --filename "织灵产品使用手册.docx"
+```
+
+Generate a fast review sample:
+
+```bash
+"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3" \
+scripts/generate_handbook_docx.py \
+  --sample-docs 8 \
+  --filename "织灵产品使用手册-前8篇样稿.docx"
+```
+
+Verify the full DOCX:
+
+```bash
+"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3" \
+scripts/verify_handbook_docx.py \
+  --docx "dist/织灵产品使用手册.docx" \
   --expected-docs 41 \
+  --min-images 90 \
   --max-size-mb 50
 ```
 
-## Standard Workflow
+If cached online source is missing, refresh it:
 
-1. Decide whether this is a first-10-page sample or full PDF.
-2. Check `assets/company-logo.png` and all three font files exist.
-3. If the user asks for latest content, run with `--refresh`. If only layout is being checked, cached source is acceptable.
-4. Generate with `scripts/generate_handbook_pdf.mjs`.
-5. Verify with `scripts/verify_handbook_pdf.py`.
-6. Visually inspect page 1 cover, page 2 TOC, page 4 body, one image-heavy section, and the last page.
-7. Return the PDF path plus high-signal checks only.
+```bash
+NODE_PATH="/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules" \
+"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3" \
+scripts/generate_handbook_docx.py \
+  --refresh \
+  --filename "织灵产品使用手册.docx"
+```
 
-## Expected Current Signals
+## Required Workflow
 
-For the current online handbook, a healthy full run is expected to be close to:
+1. Confirm whether the user wants a sample or the full DOCX.
+2. Check `assets/company-template.docx`.
+3. Check `assets/company-logo.png`.
+4. Generate with `scripts/generate_handbook_docx.py`.
+5. Run `scripts/verify_handbook_docx.py`.
+6. Open in WPS/Word if visual verification is needed.
+7. Update fields in WPS/Word so PAGE/PAGEREF values and TOC page numbers materialize.
+8. Return the DOCX path and concise verification status.
+
+## Current Accepted Output Shape
+
+For the current handbook cache, full generation should produce:
 
 ```text
 documents: 41
-output pages: 84
+output: dist/织灵产品使用手册.docx
 file size: under 50 MB
-TOC doc destinations: 41
-image XObjects: high, currently around 180+
-fonts: SourceHanSansCN-Regular, SourceHanSansCN-Bold, AppleColorEmoji only
-header logo: cover and body headers visually match; normal body header must not use the older 91.5pt oversized logo
+TOC entries: 41
+PAGEREF fields: 41
+TOC bookmarks: 41
+media files: about 100
+emoji/text suspicious chars: 0
 ```
 
-These numbers can change when the online handbook changes. Treat them as sanity checks, not fixed constants.
+Numbers can change when the online handbook changes. Treat them as sanity checks.
 
 ## Final Response Pattern
 
-Keep the user-facing response concise:
+Keep the final response short:
 
-- PDF path.
-- Whether it is sample or full.
-- Source URL and whether `--refresh` was used.
-- Page count, file size, TOC jump/page-number status, image status, font allowlist status, logo asset status.
-- Any unresolved caveat.
+- Link the DOCX.
+- State sample/full.
+- State whether verification passed.
+- Mention key checks: TOC, dynamic PAGE/PAGEREF fields, header name, emoji cleanup, media count.
+- If field values are not updated because WPS/Word was not run, say so plainly.

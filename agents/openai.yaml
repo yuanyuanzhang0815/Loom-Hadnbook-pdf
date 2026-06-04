@@ -1,7 +1,7 @@
 interface:
-  display_name: "Loom Handbook PDF"
-  short_description: "Generate template-styled Loom handbook PDFs"
-  default_prompt: "Use $loom-handbook-pdf to generate the latest 织灵产品使用手册 PDF from the online handbook with the confirmed company template cover, official company-logo.png asset, single-column clickable TOC with page numbers, localized images, template header/footer, and validation."
+  display_name: "Loom Handbook DOCX"
+  short_description: "Generate the editable 织灵产品使用手册 DOCX"
+  default_prompt: "Use $loom-handbook-pdf to generate the editable 织灵产品使用手册 DOCX from the online handbook. Use the company Word template only for cover/header/footer/page-number structure, keep confirmed SourceHanSansCN body styles, build a clickable Word TOC with dynamic PAGEREF page numbers, remove emoji text, preserve images/tables/links/code blocks, and verify the DOCX."
 
 policy:
   allow_implicit_invocation: true

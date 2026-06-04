@@ -1,78 +1,157 @@
-# Loom Handbook PDF Best Practices
+# Best Practices: Reproduce The Accepted Loom Handbook DOCX
 
-This playbook is intentionally detailed so another agent can reproduce the accepted `织灵产品使用手册.pdf` without rediscovering the same mistakes.
+This playbook describes the current best path for generating the accepted `织灵产品使用手册.docx`.
 
-The authoritative spec is `current-template-spec.md`. If this playbook and the spec conflict, follow the spec.
+Read `current-template-spec.md` first. If this file and the spec conflict, follow `current-template-spec.md`.
 
 ## Goal
 
-Generate a polished A4 PDF from:
+Generate an editable Word document from the online Loom handbook:
 
 ```text
-https://loom.aicoda.tech/handbook/docs/%E4%BA%A7%E5%93%81%E4%BB%8B%E7%BB%8D
+dist/织灵产品使用手册.docx
 ```
 
-The output must:
+The user will export PDF manually if needed. Do not optimize the default workflow around direct PDF generation.
 
-- use online handbook content and order,
-- use company template visual rules,
-- use the official company logo asset only,
-- embed only the accepted Source Han Sans / Apple emoji fonts,
-- preserve Chinese punctuation,
-- include a single-column clickable TOC with page numbers,
-- preserve images, tables, links, and code blocks,
-- reduce blank space by allowing short source pages to flow,
-- pass automated verification and visual inspection,
-- stay under 50 MB unless the user changes the limit.
+## Mental Model
 
-## What Went Wrong Before
+There are three separate authorities:
 
-Avoid these known failures:
+1. Online handbook: content and order.
+2. Company Word template: cover/header/footer/page-number furniture only.
+3. Confirmed handbook body style: body typography, TOC style, block conversion, image sizing.
 
-- Reading Feishu/wiki tree order produced `产品介绍 -> 名词解释`, which was wrong.
-- Treating each website page as a forced PDF page created many blank areas.
-- Reusing Docusaurus visual CSS made the PDF look like a webpage screenshot, not a formal document.
-- Remote lazy-loaded images produced blank image areas.
-- A two-column TOC looked informal and made page numbers harder to read.
-- Footer post-processing once broke clickable TOC destinations.
-- Missing fonts caused WPS/macOS fallback fonts such as `STKaiti`, `STHeiti`, `DengXian-Light`, or `Helvetica`.
-- Broad text normalization changed Chinese punctuation into ASCII punctuation.
-- A screenshot/logo approximation violated the official logo rule.
-- Body headers once used a larger right-side logo than the user-approved cover header. The accepted fix is to shrink the header logo from the old `91.5pt` width to `63pt`, move it to `top: 32pt`, and set the header line to `top: 55pt`.
+Do not collapse these into one source. Most previous failures came from confusing these boundaries.
 
-## Correct Pipeline
+## Required Assets
 
-Run `scripts/generate_handbook_pdf.mjs`.
+The skill must include:
 
-It should perform this pipeline:
+```text
+assets/company-template.docx
+assets/company-logo.png
+```
 
-1. Check `assets/company-logo.png`.
-2. Check all three font files.
-3. Build or read the cached online source.
-4. Crawl order from Docusaurus next-page pagination, not Feishu tree order.
-5. Download all remote images locally.
-6. Convert source HTML to clean semantic body HTML.
-7. Remove source classes, inline styles, `data-*`, nav, header, footer, sidebars, Docusaurus wrappers, and theme layout.
-8. Build template-styled HTML with cover, TOC, body, header/footer placeholders, and named destinations.
-9. Render a preflight PDF.
-10. Extract exact page numbers for `/doc-N` destinations.
-11. Rebuild TOC with page numbers.
-12. Render draft PDF.
-13. Slice first N pages only if `--sample-pages` is provided.
-14. Apply the accepted header/footer overlay without destroying links/destinations.
-15. Normalize PDF font names to the accepted allowlist.
-16. Write a generation report.
-17. Verify the PDF.
+Rules:
 
-## Source Order
+- `company-template.docx` is the template. It is not a visual suggestion.
+- `company-logo.png` is the only logo asset.
+- Do not redraw or regenerate the logo.
+- If either file is missing, stop and report the missing file.
 
-Use the online handbook as the source of truth. Follow:
+## Source Cache
+
+The DOCX generator reads:
+
+```text
+work-online/online-handbook.html
+work-online/online-order.json
+work-online/assets/*
+```
+
+If these are missing, run with `--refresh`. Refresh uses the existing Docusaurus crawler script:
+
+```bash
+NODE_PATH="/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules" \
+"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3" \
+scripts/generate_handbook_docx.py --refresh
+```
+
+In Codex Desktop, prefer bundled Node/Python runtime paths. If outside Codex, install compatible Python packages and Node dependencies before running refresh.
+
+## Generation Commands
+
+Full document:
+
+```bash
+"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3" \
+scripts/generate_handbook_docx.py \
+  --filename "织灵产品使用手册.docx"
+```
+
+Fast sample:
+
+```bash
+"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3" \
+scripts/generate_handbook_docx.py \
+  --sample-docs 8 \
+  --filename "织灵产品使用手册-前8篇样稿.docx"
+```
+
+Custom template:
+
+```bash
+python3 scripts/generate_handbook_docx.py \
+  --template "/path/to/可达智灵通用文档模板(2).docx" \
+  --filename "织灵产品使用手册.docx"
+```
+
+## Verification Command
+
+Run after full generation:
+
+```bash
+"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3" \
+scripts/verify_handbook_docx.py \
+  --docx "dist/织灵产品使用手册.docx" \
+  --expected-docs 41 \
+  --min-images 90 \
+  --max-size-mb 50
+```
+
+Expected result:
+
+```json
+{
+  "ok": true
+}
+```
+
+For samples, lower expectations:
+
+```bash
+python3 scripts/verify_handbook_docx.py \
+  --docx "dist/织灵产品使用手册-前8篇样稿.docx" \
+  --expected-docs 8 \
+  --min-images 1
+```
+
+## Implementation Details That Must Stay
+
+### Page Content
+
+The script parses each cached section from:
 
 ```html
-pagination-nav__link pagination-nav__link--next
+<section id="doc-N" data-title="...">
 ```
 
-Expected opening order:
+It removes:
+
+- duplicated article header title;
+- source URL lines;
+- web navigation;
+- Markdown residue;
+- emoji text;
+- keycap residue;
+- compatibility Unicode.
+
+It keeps:
+
+- paragraphs;
+- h1/h2/h3/h4;
+- ul/ol/li;
+- tables;
+- images;
+- pre/code;
+- links.
+
+### Source Order
+
+Use `online-order.json` to get depth and order. Do not sort alphabetically. Do not use Feishu tree order. Do not infer order from sidebar text.
+
+The first items should be:
 
 ```text
 产品介绍
@@ -82,347 +161,244 @@ Expected opening order:
 会话&工作区
 ```
 
-If the order starts with `产品介绍 -> 名词解释`, stop and fix the crawler/source. Do not manually reorder random pages.
+### Cover
 
-## Semantic Cleaning
-
-The final render should use only semantic elements:
+Use the template body prefix from `company-template.docx`. Replace only the cover title placeholder:
 
 ```text
-h1 h2 h3 h4
-p
-ul ol li
-table thead tbody tr th td
-img
-pre code
-a
+文档标题封面 -> 织灵产品使用手册
 ```
 
-Remove:
+Do not rebuild the cover from HTML/CSS.
 
-- `class`,
-- `style`,
-- `data-*`,
-- Docusaurus `theme-doc-*`,
-- Docusaurus sidebar/sidebar collapse state,
-- website header/nav/footer,
-- page breadcrumbs,
-- website next/previous cards,
-- website TOC,
-- website theme CSS,
-- empty wrappers.
+### Header
 
-Preserve:
-
-- text,
-- heading levels,
-- list structure,
-- table content,
-- image sources after localization,
-- code text,
-- links.
-
-Do not clean by flattening everything into plain text. That destroys lists, headings, links, tables, and code blocks.
-
-## Font Rules
-
-The accepted font implementation is strict:
+Replace placeholder header text:
 
 ```text
-SourceHanSansCN-Regular
-SourceHanSansCN-Bold
-AppleColorEmoji
+文档名称
+产品文档名称
 ```
 
-The final PDF font table must contain only these names.
-
-Implementation guidance:
-
-- Use bundled `assets/fonts/*.ttf` through `@font-face`.
-- Body text uses `SourceHanSansCN-Regular`.
-- Headings and bold text use `SourceHanSansCN-Bold`.
-- Emoji/special symbols use `AppleColorEmoji`.
-- Run `normalize_pdf_font_names.py` after PDF generation.
-- Verify with `verify_handbook_pdf.py`.
-
-Do not rely on system fonts. The user's machine may have WPS or Office fonts, but another agent's machine may not.
-
-Disallowed final PDF fonts:
+with:
 
 ```text
-STKaiti
-STHeiti
-DengXian-Light
-Helvetica
-Times
-Arial
-PingFang
-Songti
-Kaiti
-SimSun
+织灵产品手册
 ```
 
-If any disallowed font appears, do not ship.
+Do not change template line/logo positioning.
 
-## Punctuation Rules
+### Footer
 
-Preserve source Chinese punctuation exactly.
-
-Correct:
+The script normalizes footer page fields:
 
 ```text
-织灵，Coda Loom，是一款……
+版本：v1.0.0    Coda Intellect Tech Co., Ltd Confidential    PAGE
 ```
 
-Wrong:
+The right value is a Word field:
 
 ```text
-织灵,Coda Loom,是一款……
+PAGE
 ```
 
-Never use broad `NFKC` over whole paragraphs. It can convert Chinese punctuation into half-width ASCII punctuation.
+It must not be static `1`.
 
-Allowed targeted normalization:
+All sections should use continuous page numbering. Remove `w:start="1"` from generated section page-number settings.
 
-- replace `\u00a0` with a normal space,
-- remove emoji variation selector `\uFE0F` only if it breaks rendering,
-- normalize CJK radical/compatibility glyph ranges only:
-  - `\u2E80-\u2EFF`
-  - `\u2F00-\u2FDF`
-  - `\uF900-\uFAFF`
+### TOC
 
-Do not normalize:
+The TOC has:
 
-- `，。；：、（）《》“”‘’`
-- mixed Chinese/English phrases,
-- source wording.
+- visible styled entries;
+- bookmark target for every document title;
+- dynamic `PAGEREF` page number field;
+- dotted leader tab;
+- right-aligned page number;
+- hierarchical numbering in text.
 
-Regression check page 4 or equivalent:
+TOC levels:
 
 ```text
-must contain: 织灵，Coda Loom，是
-must not contain: 织灵,Coda Loom,是
-must contain: 少量人工负责指导和审核，主要工作由ADE来完成
+1. 一级标题
+1.1. 二级标题
+1.1.1. 三级标题
+1.1.1.1. 四级标题
 ```
 
-## Image Rules
+After opening in WPS/Word, update fields so `PAGEREF` values display real pages.
 
-Before PDF rendering:
+### Body Styles
 
-- turn relative URLs into absolute URLs,
-- download remote images locally,
-- replace `src` with `file://` URLs,
-- remove `loading`, `decoding`, `srcset`, `sizes`,
-- wait for all images to load in Playwright,
-- fail on zero natural width/height,
-- preserve aspect ratio,
-- keep current accepted image sizing.
-
-Do not ship a PDF with blank screenshot areas.
-
-The full current PDF should have many image XObjects, currently around 180+. A very low image count means the image pipeline broke.
-
-## TOC Rules
-
-TOC must be:
-
-- single-column,
-- vertical,
-- formal,
-- dotted leader lines,
-- page numbers on the right,
-- clickable.
-
-Do not use a two-column TOC.
-
-Never guess page numbers. Use two-pass rendering:
-
-1. Render preflight PDF.
-2. Read named destination page numbers.
-3. Rebuild TOC.
-4. Render final PDF.
-
-After header/footer overlay, verify links and destinations still exist.
-
-## Pagination Rules
-
-The website has many short pages. PDF should not treat every web page as a hard page break.
-
-Use this approach:
-
-- Cover is page 1.
-- TOC begins page 2.
-- Body flows naturally.
-- Top-level sections may start on a new page.
-- Subpages flow unless a forced break is needed for readability.
-- Avoid breaking screenshots, tables, and code blocks.
-- Do not leave large blank pages just because a source web page ended.
-
-## Header/Footer Rules
-
-Cover:
-
-- uses first-page template header/footer only,
-- no normal overlay.
-
-TOC/body:
-
-- header left: `织灵产品使用手册`,
-- header right: `assets/company-logo.png`,
-- header right logo: `width: 63pt`, `top: 32pt`, same visual size as cover header,
-- header line: `top: 55pt`, current accepted weight/color,
-- footer left: `版本：v1.0.0`,
-- footer center: `Coda Intellect Tech Co., Ltd Confidential`,
-- footer right: plain page number only.
-
-Never write:
+Use explicit custom Word styles:
 
 ```text
-第 2 页
-第 2 页 / 共 84 页
-2 / 84
+LoomBody
+LoomList
+LoomDocTitle1-4
+LoomHeading1-4
+LoomTableHeader
+LoomTableCell
+LoomTocTitle
+LoomToc1-4
+引用块
+代码块
+行内代码
 ```
 
-## Logo Rules
+Do not rely on Word built-in Heading styles for visual correctness. The custom styles carry the accepted SourceHanSansCN sizing.
 
-The official company logo is an asset, not a visual reference.
+### Highlighter Blocks
 
-Only use:
+For blockquote/highlighter-like content, use a one-cell table with:
 
-```text
-assets/company-logo.png
-```
+- background `F3F7FF`;
+- left border `2F7DFF`;
+- editable text and lists;
+- no screenshot conversion.
 
-Forbidden:
+This reproduces the visual grouping from the online handbook without inheriting web CSS.
 
-- OCR,
-- redraw,
-- trace,
-- rebuilding with text and shapes,
-- AI generation,
-- screenshot replacement,
-- changing proportions,
-- fallback text logo,
-- fallback generated logo.
+### Emoji Removal
 
-If the asset cannot be read, stop and explain.
+Remove source text emoji entirely. Do not replace them with placeholder characters.
 
-## Header Logo Calibration
+Clean:
 
-The user-approved cover has a smaller company logo than the earlier body header.
+- common emoji ranges;
+- variation selectors;
+- zero-width joiner;
+- keycap sequences such as `1⃣` and `2⃣`;
+- leftover `U+20E3`.
 
-Use these locked CSS values in both cover and body header rendering:
+Screenshots are images and must not be edited.
 
-```css
-.cover-first-header img,
-.header-logo {
-  width: 63pt;
-  top: 32pt;
-}
+## Manual Field Update
 
-.cover-first-header::after,
-.header-line {
-  top: 55pt;
-}
-```
+DOCX field values are dynamic. A generated file can contain correct fields while not yet showing final numeric values.
 
-Expected rendered measurement at 72dpi:
+In WPS/Word:
 
-```text
-page 1 logo-only bbox: about 60x16-18 pt
-body page logo-only bbox: about 61x17 pt
-right edge: visually aligned with cover header
-```
+1. Open the DOCX.
+2. Select all.
+3. Update fields.
+4. Confirm TOC page numbers and footer page numbers.
+5. Export PDF manually if needed.
 
-Do not return to the old body-header value:
+Do not replace dynamic fields with static numbers just to make the preview look updated.
 
-```css
-width: 91.5pt;
-top: 26.5pt;
-```
+## Common Failure Modes
 
-## Sample First
+### All footer pages show 1
 
-For visual review, generate:
+Cause:
 
-```bash
-node scripts/generate_handbook_pdf.mjs \
-  --sample-pages 10 \
-  --filename "织灵产品使用手册-模板版前10页样稿.pdf"
-```
+- static text copied from template footer, or
+- section page numbering reset with `w:start="1"`.
 
-Check:
+Fix:
 
-- cover,
-- TOC page numbers,
-- TOC click behavior,
-- font table,
-- page 4 text/punctuation,
-- header/footer,
-- image sizing,
-- blank-space reduction.
+- footer right side must use `PAGE`;
+- remove `w:start` from section `pgNumType`;
+- verify with `verify_handbook_docx.py`.
 
-Only after approval, generate the full PDF.
+### TOC has titles but no page numbers
 
-## Full Generation
+Cause:
 
-Generate:
+- missing `PAGEREF` fields, or
+- fields not updated in WPS/Word.
 
-```bash
-node scripts/generate_handbook_pdf.mjs \
-  --filename "织灵产品使用手册.pdf"
-```
+Fix:
 
-Use `--refresh` when the user wants the latest online content. Cached source is acceptable for layout-only iteration.
+- ensure each TOC entry has a bookmark target and `PAGEREF`;
+- open in WPS/Word and update fields.
 
-## Verification
+### TOC style is wrong
 
-Always run:
+Cause:
 
-```bash
-python scripts/verify_handbook_pdf.py \
-  --pdf "/path/to/织灵产品使用手册.pdf" \
-  --expected-docs 41 \
-  --max-size-mb 50
-```
+- using Word built-in TOC styles or template defaults.
 
-Then visually inspect:
+Fix:
 
-- page 1 cover,
-- page 2 TOC,
-- page 4 or first real body page,
-- one image-heavy page,
-- last page.
+- use `LoomToc1-4`;
+- verify font size, bold, italic, indent, and dotted leader tabs.
 
-Do not rely on "the command succeeded." A visually broken PDF can still be a technically valid PDF.
+### Header still says 文档名称
 
-## Current Healthy Signals
+Cause:
 
-For the current online handbook, the accepted full output is expected to be close to:
+- template placeholder was copied.
 
-```text
-documents: 41
-output pages: 84
-file size: about 39 MB
-doc destinations: 41
-link annotations: 70+
-image XObjects: 180+
-fonts: SourceHanSansCN-Regular, SourceHanSansCN-Bold, AppleColorEmoji
-header logo: cover and body header logo sizes match
-```
+Fix:
 
-These numbers may shift when the handbook changes. Use them as alarms, not constants.
+- run header replacement for all `word/header*.xml`;
+- expected text is `织灵产品手册`.
 
-## User-Facing Response
+### Body font looks like template font
 
-Do not dump logs. Tell the user:
+Cause:
 
-- PDF path,
-- full or sample,
-- source URL,
-- whether refresh was used,
-- pages and size,
-- fonts passed,
-- TOC page numbers/clicks passed,
-- images passed,
-- any caveat.
+- using template body styles.
+
+Fix:
+
+- use custom Loom styles;
+- body should be SourceHanSansCN-Regular 10.5 pt;
+- headings should be SourceHanSansCN-Bold 22/16/15/14 pt.
+
+### Highlight block is not boxed
+
+Cause:
+
+- blockquote was converted to separate shaded paragraphs.
+
+Fix:
+
+- convert it to one-cell Word table with blue left border and light fill.
+
+### Garbled symbol appears around page 10
+
+Cause:
+
+- keycap emoji residue such as `U+20E3` survived after emoji removal.
+
+Fix:
+
+- remove full keycap sequence and standalone `U+20E3`;
+- verify suspicious char count is zero.
+
+### Images are missing
+
+Cause:
+
+- source cache lacks localized image files;
+- source `src` paths do not map to `work-online/assets`.
+
+Fix:
+
+- refresh cache;
+- do not ship if important screenshots are missing;
+- verify `mediaFiles` count is near expected.
+
+## What To Commit
+
+Commit:
+
+- `SKILL.md`;
+- `agents/openai.yaml`;
+- `assets/company-template.docx`;
+- `assets/company-logo.png`;
+- `scripts/generate_handbook_docx.py`;
+- `scripts/verify_handbook_docx.py`;
+- `references/*.md`;
+- `.gitignore`.
+
+Do not commit:
+
+- `node_modules/`;
+- generated `dist/`;
+- generated `output/`;
+- temporary unzipped DOCX folders;
+- `work-online/` cache unless the user explicitly wants cached source committed.

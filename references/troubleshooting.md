@@ -1,33 +1,131 @@
-# Loom Handbook PDF Troubleshooting
+# Troubleshooting
 
-Use this when generation succeeds but the PDF is wrong, or when a command fails.
+Use this when generated DOCX output does not match the accepted result.
 
-## Network Or Access Failure
+## Page Numbers All Show 1
 
-Symptom:
+Cause:
 
-```text
-curl: (6) Could not resolve host: loom.aicoda.tech
-```
-
-Likely cause: the sandbox blocks network or DNS.
+- footer page number was copied as static text;
+- body sections contain `<w:pgNumType w:start="1"/>`.
 
 Fix:
 
-- Rerun with network permission in the host environment.
-- Do not switch to Feishu order, local guesses, screenshots, or stale unrelated content just because network failed.
-- If a cached `work-online/online-handbook.html` is available and the user is only checking layout, use the cache.
+1. Ensure footer page number is a `PAGE` field.
+2. Remove `w:start`, `w:chapStyle`, and `w:chapSep` from generated section page-number settings.
+3. Run `verify_handbook_docx.py`.
+4. Open in WPS/Word and update fields.
 
-## Wrong Page Order
+## TOC Has No Page Numbers
 
-Symptom:
+Cause:
+
+- `PAGEREF` fields are missing;
+- bookmarks are missing;
+- fields have not been updated in WPS/Word.
+
+Fix:
+
+1. Each document title must have a `_LoomTocN` bookmark.
+2. Each TOC entry must include `PAGEREF _LoomTocN \h`.
+3. `settings.xml` must include `<w:updateFields w:val="true"/>`.
+4. Open in WPS/Word and update fields.
+
+## TOC Looks Like The Wrong Template
+
+Cause:
+
+- generated content used built-in Word TOC styles;
+- `LoomToc1-4` were not mapped into `style_ids`.
+
+Fix:
+
+- use `LoomToc1`, `LoomToc2`, `LoomToc3`, `LoomToc4`;
+- check:
+  - TOC 1: 10 pt bold non-italic;
+  - TOC 2: 10 pt regular non-italic;
+  - TOC 3: 10 pt italic non-bold;
+  - TOC 4: 9 pt regular non-italic;
+  - dotted leader tab;
+  - right-aligned page number.
+
+## Header Still Says 文档名称
+
+Cause:
+
+- placeholder text remains in one of `word/header*.xml`.
+
+Fix:
+
+- replace both `文档名称` and `产品文档名称` with `织灵产品手册`.
+- run verifier and inspect header text.
+
+## Body Font Regressed
+
+Cause:
+
+- template Heading/Normal styles were used for body content.
+
+Fix:
+
+- body paragraphs must use `LoomBody`;
+- page titles must use `LoomDocTitle1-4`;
+- internal headings must use `LoomHeading1-4`;
+- do not use template body defaults for content.
+
+## Highlight Block Is Not Boxed
+
+Cause:
+
+- blockquote/highlight content was converted to multiple shaded paragraphs.
+
+Fix:
+
+- convert blockquote to a one-cell Word table;
+- table cell fill `F3F7FF`;
+- table left border `2F7DFF`;
+- no top/right/bottom borders;
+- keep text editable.
+
+## Garbled Character Appears Where Emoji Was
+
+Cause:
+
+- emoji was partly removed but a combining residue remains, commonly `U+20E3`.
+
+Fix:
+
+- remove full keycap sequences with regex:
 
 ```text
-产品介绍
-名词解释
+[0-9#*]\ufe0f?\u20e3
 ```
 
-Expected start:
+- also remove standalone `\u20e3`.
+- verify `suspiciousTextChars` is empty.
+
+## Chinese Punctuation Became ASCII
+
+Cause:
+
+- an over-aggressive punctuation normalization step.
+
+Fix:
+
+- do not normalize punctuation globally;
+- preserve source Chinese punctuation;
+- only normalize known compatibility Unicode characters.
+
+## Source Order Is Wrong
+
+Cause:
+
+- using Feishu tree order, sidebar order, or alphabetical order.
+
+Fix:
+
+- use `work-online/online-order.json`;
+- ensure the opening order is:
 
 ```text
 产品介绍
@@ -37,311 +135,70 @@ Expected start:
 会话&工作区
 ```
 
-Cause: source order came from Feishu/wiki node order or a filesystem/order guess.
-
-Fix:
-
-- Follow Docusaurus `pagination-nav__link--next`.
-- Check `work-online/online-order.json`.
-- Do not manually patch only the first few pages; verify the whole order.
-
-## Missing Images Or Blank Screenshot Areas
-
-Symptom: text appears but screenshots are blank, missing, or replaced by whitespace.
-
-Cause: images stayed remote, lazy-loaded, or Chrome printed before they finished loading.
-
-Fix:
-
-- Download remote images locally.
-- Replace `src` with `file://` URLs.
-- Remove `loading`, `decoding`, `srcset`, and `sizes`.
-- Wait for all `document.images` to complete.
-- Fail on zero natural dimensions.
-- Verify `imageXObjects` is high. Current full output is around 180+.
-
-Do not ship if image count is low or screenshot areas are blank.
-
-## Font Regression
-
-Symptom: WPS or PDF inspector reports fonts such as:
-
-```text
-STKaiti
-STHeiti
-DengXian-Light
-Helvetica
-```
+## Images Missing
 
 Cause:
 
-- local system font fallback,
-- missing bundled font files,
-- old template font names applied directly,
-- Playwright default fallback,
-- PDF post-processing introduced Helvetica.
+- `work-online/assets` missing;
+- source cache was copied without assets;
+- image path mapping failed.
 
 Fix:
 
-- Ensure these files exist:
-  - `assets/fonts/SourceHanSansCN-Regular.ttf`
-  - `assets/fonts/SourceHanSansCN-Bold.ttf`
-  - `assets/fonts/AppleColorEmoji.ttf`
-- Ensure CSS uses only these `@font-face` families.
-- Ensure footer/header overlay is generated by the current JS path, not an old ReportLab/Helvetica overlay.
-- Run `normalize_pdf_font_names.py`.
-- Run `verify_handbook_pdf.py`.
+1. Run generation with `--refresh`.
+2. Check `work-online/assets`.
+3. Verify `mediaFiles` count.
+4. Do not ship if screenshots are blank or absent.
 
-Accepted final font table:
+## Refresh Fails Because Node Cannot Find Playwright
 
-```text
-AppleColorEmoji
-SourceHanSansCN-Bold
-SourceHanSansCN-Regular
-```
+Cause:
 
-Any other final font is a failure.
+- Codex runtime `NODE_PATH` is not set;
+- local npm dependencies are not installed.
 
-## Chinese Punctuation Changed
-
-Symptom:
-
-```text
-Wrong: 织灵,Coda Loom,是一款……
-```
-
-Expected:
-
-```text
-Correct: 织灵，Coda Loom，是一款……
-```
-
-Cause: broad `NFKC`, ASCII cleanup, translation-like rewriting, or punctuation normalization over all text.
-
-Fix:
-
-- Do not normalize whole paragraphs.
-- Do not run punctuation replacement maps.
-- Only normalize CJK radical/compatibility glyph ranges when necessary for font coverage.
-- Preserve mixed Chinese/English exactly as source.
-- Re-check page 4 for:
-  - `织灵，Coda Loom，是`
-  - `少量人工负责指导和审核，主要工作由ADE来完成`
-
-## Missing Text On Page 4
-
-Symptom: the phrase below loses characters or wraps into missing glyphs:
-
-```text
-少量人工负责指导和审核，主要工作由ADE来完成
-```
-
-Cause: font fallback or over-aggressive text cleaning.
-
-Fix:
-
-- Restore Source Han Sans fonts.
-- Avoid deleting inline nodes when cleaning.
-- Preserve text node content.
-- Do not use OCR or screenshot text extraction as the source.
-
-## TOC Does Not Jump
-
-Symptom: TOC has entries but clicking does not jump.
-
-Cause: PDF post-processing destroyed named destinations or annotations.
-
-Fix:
-
-- Preserve the original PDF document structure when adding overlays.
-- Do not rewrite pages into a fresh PDF without cloning destinations.
-- Verify `docDestinations >= document count`.
-- Verify `links` is nonzero.
-
-Current expected full output: `docDestinations: 41`, link annotations around `70+`.
-
-## TOC Missing Page Numbers
-
-Symptom: TOC has titles and dotted leaders but no right-side numbers.
-
-Cause: TOC was rendered before pagination was known.
-
-Fix:
-
-- Render preflight PDF.
-- Extract `/doc-N` destination page numbers.
-- Rebuild TOC.
-- Render final PDF.
-
-Do not guess page numbers from source order or visible text.
-
-## TOC Is Two Columns
-
-Symptom: TOC entries appear in two side-by-side columns.
-
-Cause: old review layout survived.
-
-Fix:
-
-- Use single-column vertical TOC.
-- Allow TOC to continue onto additional pages if needed.
-
-## Footer Problems
-
-Symptom: footer appears on cover.
-
-Fix: skip page 1 for normal overlay. Cover uses its own first-page footer.
-
-Symptom: footer says:
-
-```text
-第 2 页 / 共 84 页
-```
-
-Fix: footer right is plain page number only.
-
-Correct body footer:
-
-```text
-left:   版本：v1.0.0
-center: Coda Intellect Tech Co., Ltd Confidential
-right:  2
-```
-
-Symptom: footer fix breaks TOC jumps.
-
-Fix: see "TOC Does Not Jump"; preserve destinations while overlaying.
-
-## Header Or Logo Looks Wrong
-
-Symptom: logo is fuzzy, redrawn, stretched, or replaced.
-
-Fix:
-
-- Use only `assets/company-logo.png`.
-- Scale proportionally.
-- Do not OCR/redraw/trace/rebuild/generate.
-- If missing, stop.
-
-Symptom: header layout shifts after a font or punctuation fix.
-
-Fix:
-
-- Do not touch header CSS/overlay dimensions unless the user explicitly asks.
-- Keep current accepted logo position and horizontal line.
-
-### Symptom
-
-Body page right-side logo is visibly larger than the cover header logo.
-
-### Cause
-
-The generator or overlay reverted to the old body header size:
-
-```css
-width: 91.5pt;
-top: 26.5pt;
-```
-
-### Fix
-
-Use the accepted cover-matched values:
-
-```css
-width: 63pt;
-top: 32pt;
-```
-
-Set the header line to:
-
-```css
-top: 55pt;
-```
-
-After rendering, compare page 1 and page 2 header crops. The logo-only visible boxes should both be about `60-61pt` wide.
-
-## Cover Regressed
-
-Symptom: cover shows old marketing-style artwork, metadata cards, blue decorations, or screenshot-matched elements.
-
-Cause: old generator path or old cover asset was used.
-
-Fix:
-
-- Use current company-template cover implementation.
-- Title is `织灵产品使用手册`.
-- `编号` and `密级` are blank.
-- Cover uses official logo asset.
-- Cover does not receive normal body header/footer.
-
-## File Too Large
-
-Symptom: PDF exceeds 50 MB.
-
-Cause: large new screenshots, duplicate image embedding, or no compression.
-
-Fix:
-
-1. Confirm whether 50 MB is still hard.
-2. Look for duplicated images.
-3. Compress cautiously only if needed.
-4. Do not downsample screenshots until unreadable.
-
-Current full output is about 39 MB, so above 50 MB is suspicious unless content grew.
-
-## Text Extraction Looks Strange But Visual PDF Is Correct
-
-Symptom: extracted text shows glyph variants such as:
-
-```text
-⾸⻚
-```
-
-Cause: PDF text extraction can expose compatibility glyphs differently.
-
-Fix:
-
-- For verification only, normalize extracted text with `unicodedata.normalize("NFKC")`.
-- Do not apply broad normalization to source text before rendering.
-- Judge visual PDF and source-preservation checks separately.
-
-## Node Cannot Find Playwright Or pdf-lib
-
-Fix: run with the bundled runtime:
+Fix in Codex Desktop:
 
 ```bash
 NODE_PATH="/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules" \
-"/Users/$USER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node" \
-scripts/generate_handbook_pdf.mjs --filename "织灵产品使用手册.pdf"
+python3 scripts/generate_handbook_docx.py --refresh
 ```
 
-If using a different environment, install equivalent `playwright` and `pdf-lib`.
-
-## Python Cache Permission Error
-
-Symptom:
-
-```text
-PermissionError: ... /Users/.../Library/Caches/com.apple.python/...
-```
-
-Fix: set Python cache to a writable temp directory:
+Fix outside Codex:
 
 ```bash
-PYTHONPYCACHEPREFIX=/private/tmp/pycache python3 -m py_compile scripts/verify_handbook_pdf.py
+npm install
+python3 scripts/generate_handbook_docx.py --refresh
 ```
 
-## Final Rule
+## Python Cannot Import PIL
 
-If a fix solves one issue by changing a locked area, reject that fix.
+Cause:
 
-Locked areas:
+- Pillow is missing in the Python runtime.
 
-- fonts,
-- Chinese punctuation,
-- header layout,
-- logo source and ratio,
-- header line,
-- cover,
-- footer,
-- image sizes.
+Fix:
+
+- in Codex Desktop, use the bundled Python runtime;
+- outside Codex, install Pillow:
+
+```bash
+python3 -m pip install pillow
+```
+
+## Verifier Fails On Samples
+
+Cause:
+
+- verifier defaults expect full document counts.
+
+Fix:
+
+For an 8-document sample:
+
+```bash
+python3 scripts/verify_handbook_docx.py \
+  --docx "dist/织灵产品使用手册-前8篇样稿.docx" \
+  --expected-docs 8 \
+  --min-images 1
+```

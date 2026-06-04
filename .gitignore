@@ -1,8 +1,12 @@
+node_modules/
+dist/
 output/
 work-online/
 work-template/
 work/
-node_modules/
-__pycache__/
-.DS_Store
 *.zip
+.DS_Store
+__pycache__/
+*.pyc
+*.pdf
+*_unzip/
