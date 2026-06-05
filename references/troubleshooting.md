@@ -57,8 +57,39 @@ Cause:
 
 Fix:
 
-- replace both `文档名称` and `产品文档名称` with `织灵产品手册`.
-- run verifier and inspect header text.
+- replace `assets/company-template.docx` with the approved latest template.
+- do not repair header text by rewriting generated header XML.
+- rerun generation from the corrected template.
+
+## Header Logo Height Or Position Changed
+
+Cause:
+
+- the agent created a new DOCX and copied the header;
+- the agent resized/reinserted the Logo;
+- the agent parsed and rewrote header XML;
+- the agent treated the Logo as a visual reference instead of immutable template content.
+
+Fix:
+
+1. Use `assets/company-template.docx` as the mother document.
+2. Replace body content only.
+3. Do not touch `word/header*.xml`, `word/_rels/header*.xml.rels`, or header-referenced media.
+4. Require both verifier checks:
+
+```text
+headerPartsByteIdenticalToTemplate: true
+headerLogoGeometryAndAssetLocked: true
+```
+
+The template diagnostic Logo extent is:
+
+```text
+cx=765175
+cy=209550
+```
+
+Do not use those values to rebuild the Logo. They are only useful for diagnosing an invalid output. The correct fix is preserving template header parts byte-for-byte.
 
 ## Body Font Regressed
 

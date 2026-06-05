@@ -685,17 +685,34 @@ def replace_all_text(node, value):
         item.text = ""
 
 
-def replace_header_document_name(temp_dir):
-    for header_path in (temp_dir / "word").glob("header*.xml"):
-        tree = ET.parse(header_path)
-        root = tree.getroot()
-        changed = False
-        for text_node in root.findall(".//" + wtag("t")):
-            if text_node.text in {"文档名称", "产品文档名称"}:
-                text_node.text = "织灵产品手册"
-                changed = True
-        if changed:
-            tree.write(header_path, encoding="utf-8", xml_declaration=True)
+def template_header_locked_entries(template_zip):
+    entries = {
+        name
+        for name in template_zip.namelist()
+        if (
+            name.startswith("word/header") and name.endswith(".xml")
+        ) or (
+            name.startswith("word/_rels/header") and name.endswith(".xml.rels")
+        )
+    }
+    for rels_name in [name for name in entries if name.startswith("word/_rels/header")]:
+        rels_root = ET.fromstring(template_zip.read(rels_name))
+        for relationship in rels_root:
+            target = relationship.get("Target", "")
+            if target.startswith("media/"):
+                entries.add(f"word/{target}")
+    return entries
+
+
+def assert_header_parts_preserved(template_path, temp_dir):
+    with zipfile.ZipFile(template_path) as template_zip:
+        for name in sorted(template_header_locked_entries(template_zip)):
+            generated_path = temp_dir / name
+            if not generated_path.exists() or generated_path.read_bytes() != template_zip.read(name):
+                raise RuntimeError(
+                    f"Locked template header part changed: {name}. "
+                    "Do not parse, rewrite, recreate, resize, reposition, or replace any header part."
+                )
 
 
 def page_field_runs(rpr_template=None):
@@ -898,7 +915,7 @@ def main():
     media_dir = temp_dir / "word/media"
     for source, target in media:
         shutil.copyfile(source, temp_dir / "word" / target)
-    replace_header_document_name(temp_dir)
+    assert_header_parts_preserved(TEMPLATE, temp_dir)
     normalize_sections_and_footers(temp_dir)
 
     if OUT_DOCX.exists():

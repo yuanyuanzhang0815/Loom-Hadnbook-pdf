@@ -76,16 +76,38 @@ Header document name must be:
 织灵产品手册
 ```
 
-Replace any template placeholder:
+The bundled `assets/company-template.docx` already contains the finalized header text. Do not replace header text during generation.
+
+Generate by opening/copying the template package and replacing only body content. New pages in the same Word section automatically inherit the template header.
+
+All header parts are immutable:
 
 ```text
-文档名称
-产品文档名称
+word/header*.xml
+word/_rels/header*.xml.rels
+header-referenced word/media/*
 ```
 
-with `织灵产品手册`.
+They must remain byte-identical to `assets/company-template.docx`.
 
-Keep the template logo, line, and position. Do not manually redraw header furniture.
+Do not parse, serialize, rewrite, rebuild, resize, reposition, or replace any header part. This locks:
+
+- Logo image bytes;
+- Logo width and height;
+- Logo aspect ratio;
+- horizontal and vertical offsets;
+- wrapping/anchor behavior;
+- header horizontal line;
+- WPS/Word compatibility markup.
+
+Current template Logo geometry for every header that contains the Logo:
+
+```text
+wp:extent cx=765175 cy=209550
+a:xfrm/a:ext cx=765175 cy=209550
+```
+
+These values are diagnostics only. The implementation requirement is stronger: preserve the complete header parts byte-for-byte.
 
 ## Footer
 

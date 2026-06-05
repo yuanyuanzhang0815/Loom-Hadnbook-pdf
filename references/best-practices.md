@@ -173,20 +173,21 @@ Do not rebuild the cover from HTML/CSS.
 
 ### Header
 
-Replace placeholder header text:
+Do not generate, copy, rebuild, or edit the header.
+
+The bundled company template already contains the accepted header text, Logo, Logo height, Logo width, position, and horizontal line. The generator must extend the template body so Word-created pages inherit the existing section header automatically.
+
+Do not parse or serialize `word/header*.xml`. Even a logically equivalent rewrite is forbidden because WPS/Word drawing compatibility markup can change.
+
+Before packaging, compare these parts against the template byte-for-byte:
 
 ```text
-文档名称
-产品文档名称
+word/header*.xml
+word/_rels/header*.xml.rels
+header-referenced word/media/*
 ```
 
-with:
-
-```text
-织灵产品手册
-```
-
-Do not change template line/logo positioning.
+The verifier must fail if any locked header part differs.
 
 ### Footer
 
@@ -329,12 +330,29 @@ Fix:
 
 Cause:
 
-- template placeholder was copied.
+- an obsolete template was supplied;
+- an agent attempted to repair the header during generation.
 
 Fix:
 
-- run header replacement for all `word/header*.xml`;
-- expected text is `织灵产品手册`.
+- replace the bundled template asset with the approved latest template;
+- do not edit header XML in the generator;
+- rerun generation and require byte-identical header verification.
+
+### Header Logo Height Changed
+
+Cause:
+
+- an agent rebuilt or resized the Logo;
+- an agent parsed and rewrote header XML;
+- a new document was created and the header was manually copied.
+
+Fix:
+
+- generate from `assets/company-template.docx` as the mother document;
+- modify body content only;
+- preserve all header XML, relationships, and referenced Logo media byte-for-byte;
+- reject the output if `headerPartsByteIdenticalToTemplate` or `headerLogoGeometryAndAssetLocked` is false.
 
 ### Body font looks like template font
 

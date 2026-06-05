@@ -52,19 +52,22 @@ Do not let the Word template override the accepted handbook body typography. Do 
 1. Generate DOCX first. Do not directly generate the final PDF unless the user explicitly asks.
 2. Template file must exist at `assets/company-template.docx` or be supplied with `--template`.
 3. Official logo asset is `assets/company-logo.png`. Do not redraw, OCR, trace, rebuild, screenshot, generate, or substitute the logo.
-4. Header document name must be `织灵产品手册`, not `文档名称` or `产品文档名称`.
-5. Cover title must be `织灵产品使用手册`.
-6. Footer page number must be a Word `PAGE` field, not static text.
-7. Do not set `<w:pgNumType w:start="1"/>` on body sections. Page numbering must remain continuous.
-8. TOC entries must be real visible Word paragraphs plus clickable bookmarks and dynamic `PAGEREF` fields.
-9. TOC fields and PAGE/PAGEREF fields must request update on open via `w:updateFields`.
-10. Body typography must use the confirmed SourceHanSansCN style system, not template body defaults.
-11. Source emoji in text must be removed. Product screenshots are images and must not be altered.
-12. Keycap emoji residue such as `U+20E3 COMBINING ENCLOSING KEYCAP` must be removed.
-13. Chinese punctuation must be preserved. Do not convert `，。：“”（）` to ASCII punctuation.
-14. Markdown residue such as `**`, backticks, and fenced markers must not appear in the DOCX.
-15. Compatibility Unicode residue such as `⽤`, `⼯`, `⼈`, `⼊`, `⻓` must be normalized.
-16. Web highlighter/blockquote content must be preserved as editable Word content, not screenshots.
+4. Generate by extending `assets/company-template.docx`. Do not create a new DOCX and copy/rebuild the header.
+5. All template header parts are immutable. `word/header*.xml`, `word/_rels/header*.xml.rels`, and header-referenced Logo media must remain byte-identical to `assets/company-template.docx`.
+6. Do not parse and rewrite header XML, even if the resulting dimensions appear equivalent. XML rewriting itself is forbidden because it can alter drawing geometry, compatibility markup, line placement, or WPS behavior.
+7. Header document name must be `织灵产品手册`. This text is already finalized inside the bundled template; the generator must not edit it.
+8. Cover title must be `织灵产品使用手册`.
+9. Footer page number must be a Word `PAGE` field, not static text.
+10. Do not set `<w:pgNumType w:start="1"/>` on body sections. Page numbering must remain continuous.
+11. TOC entries must be real visible Word paragraphs plus clickable bookmarks and dynamic `PAGEREF` fields.
+12. TOC fields and PAGE/PAGEREF fields must request update on open via `w:updateFields`.
+13. Body typography must use the confirmed SourceHanSansCN style system, not template body defaults.
+14. Source emoji in text must be removed. Product screenshots are images and must not be altered.
+15. Keycap emoji residue such as `U+20E3 COMBINING ENCLOSING KEYCAP` must be removed.
+16. Chinese punctuation must be preserved. Do not convert `，。：“”（）` to ASCII punctuation.
+17. Markdown residue such as `**`, backticks, and fenced markers must not appear in the DOCX.
+18. Compatibility Unicode residue such as `⽤`, `⼯`, `⼈`, `⼊`, `⻓` must be normalized.
+19. Web highlighter/blockquote content must be preserved as editable Word content, not screenshots.
 
 ## Bundled Files
 
