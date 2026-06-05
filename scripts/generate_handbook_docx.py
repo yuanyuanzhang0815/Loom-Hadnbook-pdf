@@ -5,6 +5,7 @@ import copy
 import hashlib
 import html
 import json
+import math
 import os
 import re
 import shutil
@@ -77,15 +78,42 @@ class Node:
 
 
 class BodyParser(HTMLParser):
+    VOID_TAGS = {"img", "br", "hr", "meta", "link", "input"}
+
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.root = Node()
         self.stack = [self.root]
 
+    def close_open(self, tags):
+        for i in range(len(self.stack) - 1, 0, -1):
+            if self.stack[i].tag in tags:
+                del self.stack[i:]
+                return
+
     def handle_starttag(self, tag, attrs):
-        node = Node(tag.lower(), dict(attrs))
+        tag = tag.lower()
+        # The cached Docusaurus HTML uses valid HTML5 optional end tags such as
+        # <tr><th>A<th>B and <tbody><tr>... . HTMLParser does not apply the
+        # browser's automatic-closing rules, so enforce the subset needed by
+        # semantic handbook content before building the intermediate tree.
+        if tag in {"thead", "tbody", "tfoot"}:
+            self.close_open({"td", "th"})
+            self.close_open({"tr"})
+            self.close_open({"thead", "tbody", "tfoot"})
+        elif tag == "tr":
+            self.close_open({"td", "th"})
+            self.close_open({"tr"})
+        elif tag in {"td", "th"}:
+            self.close_open({"td", "th"})
+        elif tag == "li":
+            self.close_open({"li"})
+        elif tag == "p":
+            self.close_open({"p"})
+
+        node = Node(tag, dict(attrs))
         self.stack[-1].children.append(node)
-        if tag.lower() not in {"img", "br", "hr", "meta", "link", "input"}:
+        if tag not in self.VOID_TAGS:
             self.stack.append(node)
 
     def handle_endtag(self, tag):
@@ -346,14 +374,15 @@ def local_path_from_src(src):
     return None
 
 
-def image_run(rel_id, image_path, doc_pr_id):
+def image_run(rel_id, image_path, doc_pr_id, max_cx=None, max_cy=None):
     with Image.open(image_path) as img:
         px_w, px_h = img.size
-    max_cx = int(5.7 * 914400)
+    max_cx = max_cx or int(5.7 * 914400)
+    max_cy = max_cy or int(4.8 * 914400)
     cx = max_cx
     cy = int(cx * px_h / px_w)
-    if cy > int(4.8 * 914400):
-        cy = int(4.8 * 914400)
+    if cy > max_cy:
+        cy = max_cy
         cx = int(cy * px_w / px_h)
     xml = f'''
     <w:r xmlns:w="{NS['w']}" xmlns:r="{NS['r']}" xmlns:wp="{NS['wp']}" xmlns:a="{NS['a']}" xmlns:pic="{NS['pic']}">
@@ -421,19 +450,71 @@ def quote_block_from_node(node, style_ids, rels, media):
     return tbl
 
 
+def table_column_widths(rows, column_count, total_width=8200):
+    min_width = 1050 if column_count >= 4 else 1200
+    base_width = min_width * column_count
+    remaining = max(total_width - base_width, 0)
+    weights = []
+    for column in range(column_count):
+        max_chars = 1
+        contains_image = False
+        for _, cells in rows:
+            if column >= len(cells):
+                continue
+            cell = cells[column]
+            max_chars = max(max_chars, len(get_text(cell).strip()))
+            contains_image = contains_image or any(
+                isinstance(child, Node) and child.tag == "img"
+                for child in walk_children(cell)
+            )
+        weight = math.sqrt(min(max_chars, 196))
+        if contains_image:
+            weight = max(weight, 12)
+        weights.append(weight)
+    weight_total = sum(weights) or 1
+    widths = [min_width + round(remaining * weight / weight_total) for weight in weights]
+    widths[-1] += total_width - sum(widths)
+    return widths
+
+
 def table_from_node(node, style_ids, rels, media):
+    row_nodes = [child for child in walk_children(node) if isinstance(child, Node) and child.tag == "tr"]
+    rows = [
+        (tr_node, [c for c in tr_node.children if isinstance(c, Node) and c.tag in {"th", "td"}])
+        for tr_node in row_nodes
+    ]
+    rows = [(tr_node, cells) for tr_node, cells in rows if cells]
+    column_count = max((len(cells) for _, cells in rows), default=0)
+    if column_count < 2:
+        raise ValueError(
+            "Source table parsed with fewer than two columns. "
+            "Check HTML5 optional-end-tag handling before generating DOCX."
+        )
+    widths = table_column_widths(rows, column_count)
+
     tbl = el(wtag("tbl"))
     tblpr = el(wtag("tblPr"))
     tblpr.append(el(wtag("tblStyle"), {wtag("val"): style_ids.get("Table Grid", "25")}))
+    tblpr.append(el(wtag("tblW"), {wtag("w"): "8200", wtag("type"): "dxa"}))
+    tblpr.append(el(wtag("tblLayout"), {wtag("type"): "fixed"}))
+    tblpr.append(el(wtag("tblCaption"), {wtag("val"): "LoomSourceTable"}))
+    tblpr.append(el(wtag("tblDescription"), {wtag("val"): f"source-columns:{column_count}"}))
     tbl.append(tblpr)
-    rows = [child for child in walk_children(node) if isinstance(child, Node) and child.tag == "tr"]
-    for tr_node in rows:
+    grid = el(wtag("tblGrid"))
+    for width in widths:
+        grid.append(el(wtag("gridCol"), {wtag("w"): str(width)}))
+    tbl.append(grid)
+
+    for tr_node, cells in rows:
         tr = el(wtag("tr"))
-        cells = [c for c in tr_node.children if isinstance(c, Node) and c.tag in {"th", "td"}]
-        for cell in cells:
+        if cells and all(cell.tag == "th" for cell in cells):
+            trpr = el(wtag("trPr"))
+            trpr.append(el(wtag("tblHeader")))
+            tr.append(trpr)
+        for index, cell in enumerate(cells):
             tc = el(wtag("tc"))
             tcpr = el(wtag("tcPr"))
-            tcw = el(wtag("tcW"), {wtag("w"): "2400", wtag("type"): "dxa"})
+            tcw = el(wtag("tcW"), {wtag("w"): str(widths[index]), wtag("type"): "dxa"})
             tcpr.append(tcw)
             if cell.tag == "th":
                 tcpr.append(el(wtag("shd"), {wtag("val"): "clear", wtag("color"): "auto", wtag("fill"): "D0CECE"}))
@@ -444,7 +525,14 @@ def table_from_node(node, style_ids, rels, media):
             if text:
                 tc.append(paragraph(style_ids.get("LoomTableHeader" if cell.tag == "th" else "LoomTableCell"), runs))
             for img in imgs:
-                p = image_paragraph(img, rels, media, style_ids)
+                p = image_paragraph(
+                    img,
+                    rels,
+                    media,
+                    style_ids,
+                    max_width_dxa=max(widths[index] - 240, 800),
+                    max_height_inches=4.2,
+                )
                 if p is not None:
                     tc.append(p)
             if len(tc) == 1:
@@ -461,7 +549,7 @@ def walk_children(node):
             yield from walk_children(child)
 
 
-def image_paragraph(node, rels, media, style_ids):
+def image_paragraph(node, rels, media, style_ids, max_width_dxa=None, max_height_inches=None):
     src = node.attrs.get("src", "")
     image_path = local_path_from_src(src)
     if not image_path or not image_path.exists():
@@ -471,7 +559,9 @@ def image_paragraph(node, rels, media, style_ids):
     target = f"media/{name}"
     media.append((image_path, target))
     rel_id = rels.add_image(target)
-    return paragraph(None, [image_run(rel_id, image_path, len(media) + 100)])
+    max_cx = int(max_width_dxa * 635) if max_width_dxa else None
+    max_cy = int(max_height_inches * 914400) if max_height_inches else None
+    return paragraph(None, [image_run(rel_id, image_path, len(media) + 100, max_cx=max_cx, max_cy=max_cy)])
 
 
 def blocks_from_node(node, style_ids, rels, media, in_quote=False):
@@ -685,61 +775,6 @@ def replace_all_text(node, value):
         item.text = ""
 
 
-def template_header_locked_entries(template_zip):
-    entries = {
-        name
-        for name in template_zip.namelist()
-        if (
-            name.startswith("word/header") and name.endswith(".xml")
-        ) or (
-            name.startswith("word/_rels/header") and name.endswith(".xml.rels")
-        )
-    }
-    for rels_name in [name for name in entries if name.startswith("word/_rels/header")]:
-        rels_root = ET.fromstring(template_zip.read(rels_name))
-        for relationship in rels_root:
-            target = relationship.get("Target", "")
-            if target.startswith("media/"):
-                entries.add(f"word/{target}")
-    return entries
-
-
-def assert_header_parts_preserved(template_path, temp_dir):
-    with zipfile.ZipFile(template_path) as template_zip:
-        for name in sorted(template_header_locked_entries(template_zip)):
-            generated_path = temp_dir / name
-            if not generated_path.exists() or generated_path.read_bytes() != template_zip.read(name):
-                raise RuntimeError(
-                    f"Locked template header part changed: {name}. "
-                    "Do not parse, rewrite, recreate, resize, reposition, or replace any header part."
-                )
-
-
-def page_field_runs(rpr_template=None):
-    runs = []
-    begin = el(wtag("r"))
-    begin.append(el(wtag("fldChar"), {wtag("fldCharType"): "begin"}))
-    runs.append(begin)
-    instr = el(wtag("r"))
-    instr.append(el(wtag("instrText"), {f"{{http://www.w3.org/XML/1998/namespace}}space": "preserve"}, " PAGE "))
-    runs.append(instr)
-    end = el(wtag("r"))
-    end.append(el(wtag("fldChar"), {wtag("fldCharType"): "end"}))
-    runs.append(end)
-    if rpr_template is not None:
-        for run in runs:
-            run.insert(0, copy.deepcopy(rpr_template))
-    return runs
-
-
-def footer_run(text, rpr_template=None):
-    run = el(wtag("r"))
-    if rpr_template is not None:
-        run.append(copy.deepcopy(rpr_template))
-    run.append(el(wtag("t"), {f"{{http://www.w3.org/XML/1998/namespace}}space": "preserve"}, text))
-    return run
-
-
 def tab_run(rpr_template=None):
     run = el(wtag("r"))
     if rpr_template is not None:
@@ -748,34 +783,8 @@ def tab_run(rpr_template=None):
     return run
 
 
-def normalize_footer_page_field(footer_path):
-    tree = ET.parse(footer_path)
-    root = tree.getroot()
-    first_para = root.find(wtag("p"))
-    if first_para is None:
-        first_para = el(wtag("p"))
-        root.append(first_para)
-    ppr = first_para.find(wtag("pPr"))
-    rpr_template = first_para.find(".//" + wtag("rPr"))
-    for child in list(first_para):
-        if child is not ppr:
-            first_para.remove(child)
-    if ppr is None:
-        ppr = el(wtag("pPr"))
-        first_para.insert(0, ppr)
-    first_para.extend([
-        footer_run("版本：v1.0.0", rpr_template),
-        tab_run(rpr_template),
-        footer_run("Coda Intellect Tech Co., Ltd Confidential", rpr_template),
-        tab_run(rpr_template),
-        *page_field_runs(rpr_template),
-    ])
-    for extra in list(root)[1:]:
-        root.remove(extra)
-    tree.write(footer_path, encoding="utf-8", xml_declaration=True)
-
-
-def normalize_sections_and_footers(temp_dir):
+def normalize_sections_and_fields(temp_dir):
+    """Keep template headers/footers untouched; only prevent page resets and update fields."""
     document_path = temp_dir / "word/document.xml"
     doc_tree = ET.parse(document_path)
     doc_root = doc_tree.getroot()
@@ -800,11 +809,6 @@ def normalize_sections_and_footers(temp_dir):
             settings_root.append(update_fields)
         update_fields.set(wtag("val"), "true")
         settings_tree.write(settings_path, encoding="utf-8", xml_declaration=True)
-
-    for footer_path in (temp_dir / "word").glob("footer*.xml"):
-        if footer_path.name == "footer3.xml":
-            continue
-        normalize_footer_page_field(footer_path)
 
 
 def parse_cli(argv):
@@ -915,8 +919,7 @@ def main():
     media_dir = temp_dir / "word/media"
     for source, target in media:
         shutil.copyfile(source, temp_dir / "word" / target)
-    assert_header_parts_preserved(TEMPLATE, temp_dir)
-    normalize_sections_and_footers(temp_dir)
+    normalize_sections_and_fields(temp_dir)
 
     if OUT_DOCX.exists():
         OUT_DOCX.unlink()

@@ -1,7 +1,7 @@
 interface:
   display_name: "Loom Handbook DOCX"
   short_description: "Generate the editable 织灵产品使用手册 DOCX"
-  default_prompt: "Use $loom-handbook-pdf to generate the editable 织灵产品使用手册 DOCX from the online handbook. Extend assets/company-template.docx as the mother document and leave all header XML, header relationships, Logo media, Logo dimensions, position, and header line byte-identical to the template. Keep confirmed SourceHanSansCN body styles, build a clickable Word TOC with dynamic PAGEREF page numbers, remove emoji text, preserve images/tables/links/code blocks, and verify the DOCX."
+  default_prompt: "Use $loom-handbook-pdf to generate the editable 织灵产品使用手册 DOCX from the online handbook. Preserve every header/footer part from the current company Word template byte-for-byte; never move, resize, replace, normalize, or rebuild its logo, line, text, footer, or PAGE fields. Keep confirmed SourceHanSansCN body styles, build a clickable Word TOC with dynamic PAGEREF page numbers, remove emoji text, preserve images/tables/links/code blocks, and verify the DOCX."
 
 policy:
   allow_implicit_invocation: true

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-import hashlib
 import json
-import posixpath
 import re
 import sys
 import unicodedata
@@ -13,24 +11,19 @@ from xml.etree import ElementTree as ET
 
 NS = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
-    "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
-    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
-    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
 }
 W = f"{{{NS['w']}}}"
-R = f"{{{NS['r']}}}"
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_TEMPLATE = ROOT / "assets/company-template.docx"
 
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Verify the generated Loom handbook DOCX.")
     parser.add_argument("--docx", required=True, help="Path to generated DOCX.")
-    parser.add_argument(
-        "--template",
-        default=str(Path(__file__).resolve().parents[1] / "assets/company-template.docx"),
-        help="Authoritative company Word template used to lock header Logo geometry and image.",
-    )
+    parser.add_argument("--template", default=str(DEFAULT_TEMPLATE), help="Authoritative company Word template.")
     parser.add_argument("--expected-docs", type=int, default=41)
     parser.add_argument("--min-images", type=int, default=90)
+    parser.add_argument("--min-source-tables", type=int, default=1)
     parser.add_argument("--max-size-mb", type=float, default=50)
     return parser.parse_args(argv)
 
@@ -66,88 +59,6 @@ def has_suspicious_char(text):
     return bad
 
 
-def position_signature(position):
-    if position is None:
-        return None
-    child = next(iter(position), None)
-    return {
-        "relativeFrom": position.get("relativeFrom"),
-        "mode": child.tag.rsplit("}", 1)[-1] if child is not None else None,
-        "value": child.text if child is not None else None,
-    }
-
-
-def header_logo_signatures(docx_path):
-    signatures = {}
-    with ZipFile(docx_path) as z:
-        names = set(z.namelist())
-        for header_name in sorted(
-            name for name in names if name.startswith("word/header") and name.endswith(".xml")
-        ):
-            header_root = ET.fromstring(z.read(header_name))
-            rels_name = f"word/_rels/{Path(header_name).name}.rels"
-            rel_targets = {}
-            if rels_name in names:
-                rels_root = ET.fromstring(z.read(rels_name))
-                for relationship in rels_root:
-                    rel_targets[relationship.get("Id")] = relationship.get("Target")
-
-            drawings = []
-            for drawing in header_root.findall(".//w:drawing", NS):
-                extent = drawing.find(".//wp:extent", NS)
-                xfrm_extent = drawing.find(".//a:xfrm/a:ext", NS)
-                pos_h = drawing.find(".//wp:positionH", NS)
-                pos_v = drawing.find(".//wp:positionV", NS)
-                blip = drawing.find(".//a:blip", NS)
-                rel_id = blip.get(R + "embed") if blip is not None else None
-                target = rel_targets.get(rel_id)
-                media_hash = None
-                if target:
-                    media_name = posixpath.normpath(posixpath.join("word", target))
-                    if media_name in names:
-                        media_hash = hashlib.sha256(z.read(media_name)).hexdigest()
-                drawings.append({
-                    "extent": dict(extent.attrib) if extent is not None else None,
-                    "xfrmExtent": dict(xfrm_extent.attrib) if xfrm_extent is not None else None,
-                    "positionH": position_signature(pos_h),
-                    "positionV": position_signature(pos_v),
-                    "mediaSha256": media_hash,
-                })
-            signatures[Path(header_name).name] = drawings
-    return signatures
-
-
-def template_header_locked_entries(template_zip):
-    entries = {
-        name
-        for name in template_zip.namelist()
-        if (
-            name.startswith("word/header") and name.endswith(".xml")
-        ) or (
-            name.startswith("word/_rels/header") and name.endswith(".xml.rels")
-        )
-    }
-    for rels_name in [name for name in entries if name.startswith("word/_rels/header")]:
-        rels_root = ET.fromstring(template_zip.read(rels_name))
-        for relationship in rels_root:
-            target = relationship.get("Target", "")
-            if target.startswith("media/"):
-                entries.add(f"word/{target}")
-    return entries
-
-
-def compare_locked_header_parts(template_path, docx_path):
-    mismatches = []
-    with ZipFile(template_path) as template_zip, ZipFile(docx_path) as docx_zip:
-        docx_names = set(docx_zip.namelist())
-        for name in sorted(template_header_locked_entries(template_zip)):
-            if name not in docx_names:
-                mismatches.append({"part": name, "reason": "missing"})
-            elif docx_zip.read(name) != template_zip.read(name):
-                mismatches.append({"part": name, "reason": "byte-mismatch"})
-    return mismatches
-
-
 def main(argv):
     args = parse_args(argv)
     docx = Path(args.docx).expanduser().resolve()
@@ -163,7 +74,7 @@ def main(argv):
     if checks["sizeMb"] > args.max_size_mb:
         failures.append(f"File is too large: {checks['sizeMb']} MB")
 
-    with ZipFile(docx) as z:
+    with ZipFile(template) as template_zip, ZipFile(docx) as z:
         names = set(z.namelist())
         document = ET.fromstring(z.read("word/document.xml"))
         styles = ET.fromstring(z.read("word/styles.xml"))
@@ -192,35 +103,21 @@ def main(argv):
         if suspicious:
             failures.append(f"Suspicious text chars found: {suspicious[:5]}")
 
-        checks["headerTextOk"] = True
-        header_texts = {}
-        for name in sorted(n for n in names if n.startswith("word/header") and n.endswith(".xml")):
-            root = ET.fromstring(z.read(name))
-            text = "".join(t.text or "" for t in text_nodes(root))
-            header_texts[name] = text
-            if "文档名称" in text or "产品文档名称" in text:
-                checks["headerTextOk"] = False
-        checks["headers"] = header_texts
-        if not checks["headerTextOk"]:
-            failures.append("Header still contains 文档名称 or 产品文档名称.")
-
-        expected_header_logos = header_logo_signatures(template)
-        actual_header_logos = header_logo_signatures(docx)
-        checks["headerLogoGeometryAndAssetLocked"] = actual_header_logos == expected_header_logos
-        checks["headerLogoSignatures"] = actual_header_logos
-        if not checks["headerLogoGeometryAndAssetLocked"]:
+        template_names = set(template_zip.namelist())
+        protected_parts = sorted(
+            name for name in template_names
+            if re.fullmatch(r"word/(?:_rels/)?(?:header|footer)\d+\.xml(?:\.rels)?", name)
+        )
+        changed_protected_parts = [
+            name for name in protected_parts
+            if name not in names or z.read(name) != template_zip.read(name)
+        ]
+        checks["protectedHeaderFooterParts"] = protected_parts
+        checks["changedProtectedHeaderFooterParts"] = changed_protected_parts
+        if changed_protected_parts:
             failures.append(
-                "Header Logo geometry or image asset differs from the company template. "
-                "Do not change Logo width, height, aspect ratio, position, or image."
-            )
-        header_part_mismatches = compare_locked_header_parts(template, docx)
-        checks["headerPartsByteIdenticalToTemplate"] = not header_part_mismatches
-        checks["headerPartMismatches"] = header_part_mismatches
-        if header_part_mismatches:
-            failures.append(
-                "Header parts are not byte-identical to the company template. "
-                "Generate by extending the template body and leave all header XML, relationships, "
-                "Logo media, and header line data untouched."
+                "Generated DOCX changed template header/footer parts: "
+                f"{changed_protected_parts}"
             )
 
         footer_page_fields = 0
@@ -305,12 +202,47 @@ def main(argv):
             failures.append(f"Too few TOC bookmarks: {len(bookmarks)}")
 
         quote_tables = 0
+        source_tables = []
         for table in document.findall(".//w:tbl", NS):
             shd = table.find(".//w:tcPr/w:shd", NS)
             left = table.find("w:tblPr/w:tblBorders/w:left", NS)
             if shd is not None and shd.get(W + "fill") == "F3F7FF" and left is not None:
                 quote_tables += 1
+            caption = table.find("w:tblPr/w:tblCaption", NS)
+            if caption is None or caption.get(W + "val") != "LoomSourceTable":
+                continue
+            description = table.find("w:tblPr/w:tblDescription", NS)
+            match = re.search(r"source-columns:(\d+)", description.get(W + "val", "") if description is not None else "")
+            expected_columns = int(match.group(1)) if match else 0
+            rows = table.findall("w:tr", NS)
+            row_columns = [len(row.findall("w:tc", NS)) for row in rows]
+            table_width = table.find("w:tblPr/w:tblW", NS)
+            table_width_value = int(table_width.get(W + "w", "0")) if table_width is not None else 0
+            grid_columns = len(table.findall("w:tblGrid/w:gridCol", NS))
+            source_tables.append({
+                "expectedColumns": expected_columns,
+                "rowColumns": row_columns,
+                "tableWidth": table_width_value,
+                "gridColumns": grid_columns,
+            })
+            if expected_columns < 2:
+                failures.append(f"Source table has invalid expected column count: {expected_columns}")
+            if any(count != expected_columns for count in row_columns):
+                failures.append(
+                    f"Source table rows do not preserve {expected_columns} columns: {row_columns}"
+                )
+            if grid_columns != expected_columns:
+                failures.append(
+                    f"Source table grid does not preserve {expected_columns} columns: {grid_columns}"
+                )
+            if table_width_value < 7000:
+                failures.append(f"Source table is too narrow: {table_width_value} dxa")
         checks["quoteTables"] = quote_tables
+        checks["sourceTables"] = source_tables
+        if len(source_tables) < args.min_source_tables:
+            failures.append(
+                f"Too few marked source tables: {len(source_tables)} < {args.min_source_tables}"
+            )
 
         image_count = sum(1 for name in names if name.startswith("word/media/"))
         checks["mediaFiles"] = image_count

@@ -97,6 +97,7 @@ scripts/verify_handbook_docx.py \
   --docx "dist/织灵产品使用手册.docx" \
   --expected-docs 41 \
   --min-images 90 \
+  --min-source-tables 3 \
   --max-size-mb 50
 ```
 
@@ -147,6 +148,29 @@ It keeps:
 - pre/code;
 - links.
 
+### Source Tables
+
+Do not trust a generic HTML parser to preserve source tables. The online HTML
+uses valid HTML5 optional end tags such as:
+
+```html
+<tr><th>列 A<th>列 B<th>列 C
+```
+
+The generator's `BodyParser` must automatically close `th`, `td`, and `tr`.
+Every source table must be written with:
+
+- `tblCaption` value `LoomSourceTable`;
+- `tblDescription` value `source-columns:N`;
+- `tblW` equal to `8200` dxa;
+- fixed `tblLayout`;
+- a `tblGrid` column for every source column;
+- every row preserving the expected column count.
+
+The current source tables must verify as `4`, `3`, and `3` columns. If any
+large table renders as a thin vertical strip at the left of the page, stop and
+fix table parsing before delivering.
+
 ### Source Order
 
 Use `online-order.json` to get depth and order. Do not sort alphabetically. Do not use Feishu tree order. Do not infer order from sidebar text.
@@ -173,37 +197,15 @@ Do not rebuild the cover from HTML/CSS.
 
 ### Header
 
-Do not generate, copy, rebuild, or edit the header.
-
-The bundled company template already contains the accepted header text, Logo, Logo height, Logo width, position, and horizontal line. The generator must extend the template body so Word-created pages inherit the existing section header automatically.
-
-Do not parse or serialize `word/header*.xml`. Even a logically equivalent rewrite is forbidden because WPS/Word drawing compatibility markup can change.
-
-Before packaging, compare these parts against the template byte-for-byte:
-
-```text
-word/header*.xml
-word/_rels/header*.xml.rels
-header-referenced word/media/*
-```
-
-The verifier must fail if any locked header part differs.
+Copy every header part from `company-template.docx` without modification.
+Do not replace text, move the horizontal line, move or resize the logo, rewrite
+XML namespaces, or reserialize header XML.
 
 ### Footer
 
-The script normalizes footer page fields:
-
-```text
-版本：v1.0.0    Coda Intellect Tech Co., Ltd Confidential    PAGE
-```
-
-The right value is a Word field:
-
-```text
-PAGE
-```
-
-It must not be static `1`.
+Copy every footer part from `company-template.docx` without modification. The
+template already contains the required text and dynamic `PAGE` fields. Do not
+normalize or rebuild footer XML.
 
 All sections should use continuous page numbering. Remove `w:start="1"` from generated section page-number settings.
 
@@ -326,33 +328,17 @@ Fix:
 - use `LoomToc1-4`;
 - verify font size, bold, italic, indent, and dotted leader tabs.
 
-### Header still says 文档名称
+### Header Or Footer Differs From The Current Template
 
 Cause:
 
-- an obsolete template was supplied;
-- an agent attempted to repair the header during generation.
+- an agent edited, reserialized, normalized, moved, or rebuilt header/footer XML.
 
 Fix:
 
-- replace the bundled template asset with the approved latest template;
-- do not edit header XML in the generator;
-- rerun generation and require byte-identical header verification.
-
-### Header Logo Height Changed
-
-Cause:
-
-- an agent rebuilt or resized the Logo;
-- an agent parsed and rewrote header XML;
-- a new document was created and the header was manually copied.
-
-Fix:
-
-- generate from `assets/company-template.docx` as the mother document;
-- modify body content only;
-- preserve all header XML, relationships, and referenced Logo media byte-for-byte;
-- reject the output if `headerPartsByteIdenticalToTemplate` or `headerLogoGeometryAndAssetLocked` is false.
+- restore `assets/company-template.docx`;
+- regenerate without touching any header/footer part;
+- require byte-identical header/footer verification.
 
 ### Body font looks like template font
 

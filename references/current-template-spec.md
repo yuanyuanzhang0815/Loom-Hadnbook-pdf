@@ -70,56 +70,26 @@ Do not redesign the cover. Do not rebuild the logo. Do not add the old marketing
 
 ## Header
 
-Header document name must be:
+Keep the complete template header and footer byte-for-byte. Do not manually
+redraw, move, resize, replace, normalize, or reserialize any header/footer
+element. The current template already contains the accepted line, text, logo,
+spacing, footer copy, and dynamic page-number fields.
 
-```text
-织灵产品手册
-```
-
-The bundled `assets/company-template.docx` already contains the finalized header text. Do not replace header text during generation.
-
-Generate by opening/copying the template package and replacing only body content. New pages in the same Word section automatically inherit the template header.
-
-All header parts are immutable:
-
-```text
-word/header*.xml
-word/_rels/header*.xml.rels
-header-referenced word/media/*
-```
-
-They must remain byte-identical to `assets/company-template.docx`.
-
-Do not parse, serialize, rewrite, rebuild, resize, reposition, or replace any header part. This locks:
-
-- Logo image bytes;
-- Logo width and height;
-- Logo aspect ratio;
-- horizontal and vertical offsets;
-- wrapping/anchor behavior;
-- header horizontal line;
-- WPS/Word compatibility markup.
-
-Current template Logo geometry for every header that contains the Logo:
-
-```text
-wp:extent cx=765175 cy=209550
-a:xfrm/a:ext cx=765175 cy=209550
-```
-
-These values are diagnostics only. The implementation requirement is stronger: preserve the complete header parts byte-for-byte.
+Do not inspect one header part in isolation and "fix" it manually. Word
+templates can contain first/default/even headers and unused inherited parts.
+The only accepted rule is byte-for-byte preservation of every header/footer
+part from `assets/company-template.docx`.
 
 ## Footer
 
 Footer format:
 
 ```text
-left:   版本：v1.0.0
-center: Coda Intellect Tech Co., Ltd Confidential
-right:  PAGE field
+preserve exactly from assets/company-template.docx
 ```
 
-The right page number must be a Word dynamic `PAGE` field. It must not be static text.
+The template-owned page number must remain a Word dynamic `PAGE` field. It must
+not be rewritten as static text or rebuilt by script.
 
 Do not output:
 
@@ -260,8 +230,24 @@ The generated DOCX must contain dynamic fields, but their displayed page numbers
 
 Required field types:
 
-- footer page number: `PAGE`;
+- footer page number: preserve the template's `PAGE` fields exactly;
 - TOC page number: `PAGEREF`;
 - settings update: `<w:updateFields w:val="true"/>`.
 
 When visual finalization matters, open the file in WPS/Word and update fields before exporting PDF.
+
+## Source Tables
+
+The online handbook currently contains three real source tables. They must
+remain editable Word tables with these column counts:
+
+```text
+4 columns: 内置微场景列表
+3 columns: SSH 环境配置页面展示
+3 columns: 企业管理核心功能
+```
+
+The source HTML may omit `</th>`, `</td>`, and `</tr>`. The generator must use
+HTML5-style automatic closing for table cells and rows. If a source table
+becomes a one-column narrow strip, the output is invalid even if the text is
+present.

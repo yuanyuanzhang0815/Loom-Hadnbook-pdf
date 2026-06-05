@@ -6,15 +6,16 @@ Use this when generated DOCX output does not match the accepted result.
 
 Cause:
 
-- footer page number was copied as static text;
 - body sections contain `<w:pgNumType w:start="1"/>`.
+- an agent rebuilt the footer and replaced the template `PAGE` field with text.
 
 Fix:
 
-1. Ensure footer page number is a `PAGE` field.
-2. Remove `w:start`, `w:chapStyle`, and `w:chapSep` from generated section page-number settings.
-3. Run `verify_handbook_docx.py`.
-4. Open in WPS/Word and update fields.
+1. Do not manually edit footer XML.
+2. Restore the current `assets/company-template.docx` footer parts unchanged.
+3. Remove `w:start`, `w:chapStyle`, and `w:chapSep` from generated section page-number settings.
+4. Run `verify_handbook_docx.py` and confirm `changedProtectedHeaderFooterParts` is empty.
+5. Open in WPS/Word and update fields.
 
 ## TOC Has No Page Numbers
 
@@ -49,47 +50,18 @@ Fix:
   - dotted leader tab;
   - right-aligned page number.
 
-## Header Still Says 文档名称
+## Header Or Footer Changed
 
 Cause:
 
-- placeholder text remains in one of `word/header*.xml`.
+- an agent edited or reserialized protected template header/footer parts.
 
 Fix:
 
-- replace `assets/company-template.docx` with the approved latest template.
-- do not repair header text by rewriting generated header XML.
-- rerun generation from the corrected template.
-
-## Header Logo Height Or Position Changed
-
-Cause:
-
-- the agent created a new DOCX and copied the header;
-- the agent resized/reinserted the Logo;
-- the agent parsed and rewrote header XML;
-- the agent treated the Logo as a visual reference instead of immutable template content.
-
-Fix:
-
-1. Use `assets/company-template.docx` as the mother document.
-2. Replace body content only.
-3. Do not touch `word/header*.xml`, `word/_rels/header*.xml.rels`, or header-referenced media.
-4. Require both verifier checks:
-
-```text
-headerPartsByteIdenticalToTemplate: true
-headerLogoGeometryAndAssetLocked: true
-```
-
-The template diagnostic Logo extent is:
-
-```text
-cx=765175
-cy=209550
-```
-
-Do not use those values to rebuild the Logo. They are only useful for diagnosing an invalid output. The correct fix is preserving template header parts byte-for-byte.
+- do not repair the header/footer manually;
+- restore the latest `assets/company-template.docx`;
+- regenerate while leaving all header/footer parts untouched;
+- require `changedProtectedHeaderFooterParts` to be empty.
 
 ## Body Font Regressed
 
@@ -117,6 +89,31 @@ Fix:
 - table left border `2F7DFF`;
 - no top/right/bottom borders;
 - keep text editable.
+
+## Source Table Collapses Into One Narrow Column
+
+Symptoms:
+
+- a table occupies only the left quarter of the page;
+- text from multiple columns is repeated inside one cell;
+- one source table expands into dozens of mostly empty pages.
+
+Cause:
+
+- the source uses valid HTML5 optional end tags such as `<tr><th>A<th>B`;
+- Python `HTMLParser` does not automatically close `th`, `td`, or `tr`;
+- the malformed intermediate tree makes every Word row contain one cell.
+
+Fix:
+
+1. Use the bundled `BodyParser` automatic-closing logic for `thead`, `tbody`, `tfoot`, `tr`, `th`, and `td`.
+2. Do not replace it with a basic recursive parser unless HTML5 table behavior is preserved.
+3. Write `tblW`, `tblLayout`, `tblGrid`, and matching `tcW` values for every source table.
+4. Keep table images within their cell width.
+5. Run `verify_handbook_docx.py --min-source-tables 3`.
+6. Reject the output if any marked source table row has fewer cells than its expected column count.
+
+For the current online handbook, the three source tables must preserve `4`, `3`, and `3` columns.
 
 ## Garbled Character Appears Where Emoji Was
 
@@ -233,3 +230,18 @@ python3 scripts/verify_handbook_docx.py \
   --expected-docs 8 \
   --min-images 1
 ```
+
+## LibreOffice Render Fails On macOS
+
+The Skill deliverable is DOCX. WPS is the preferred manual visual checker on
+this machine. If a local visual render uses the bundled `soffice` and fails
+with missing Homebrew libraries, install the exact missing direct dependencies:
+
+```bash
+HOMEBREW_NO_AUTO_UPDATE=1 brew install little-cms2 fontconfig freetype
+```
+
+If `soffice` then says `Error: source file could not be loaded`, do not rewrite
+the DOCX or the template. First verify structurally with `verify_handbook_docx.py`
+and open the file in WPS. The WPS-specific template may still be valid even when
+LibreOffice cannot load it.
